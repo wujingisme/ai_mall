@@ -1,0 +1,143 @@
+openapi: 3.0.3
+info:
+  title: AI Mall Product API
+  version: 1.0.0
+  description: 商城第一版商品 CRUD API
+servers:
+  - url: http://localhost:8080
+tags:
+  - name: Products
+paths:
+  /api/v1/products:
+    get:
+      tags: [Products]
+      summary: 分页查询商品
+      operationId: listProducts
+      parameters:
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: pageSize, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { name: keyword, in: query, description: 按名称或 SKU 搜索, schema: { type: string, maxLength: 200 } }
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/ProductStatus' } }
+      responses:
+        '200':
+          description: 查询成功
+          content: { application/json: { schema: { $ref: '#/components/schemas/ProductPage' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    post:
+      tags: [Products]
+      summary: 新增商品
+      operationId: createProduct
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ProductWriteRequest' } } }
+      responses:
+        '201':
+          description: 创建成功
+          content: { application/json: { schema: { $ref: '#/components/schemas/ProductDetail' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/products/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, pattern: '^[1-9][0-9]*$' }
+    get:
+      tags: [Products]
+      summary: 获取商品详情
+      operationId: getProduct
+      responses:
+        '200':
+          description: 查询成功
+          content: { application/json: { schema: { $ref: '#/components/schemas/ProductDetail' } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [Products]
+      summary: 编辑商品
+      operationId: updateProduct
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ProductWriteRequest' } } }
+      responses:
+        '200':
+          description: 更新成功
+          content: { application/json: { schema: { $ref: '#/components/schemas/ProductDetail' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+    delete:
+      tags: [Products]
+      summary: 删除商品
+      operationId: deleteProduct
+      responses:
+        '204': { description: 删除成功 }
+        '404': { $ref: '#/components/responses/NotFound' }
+components:
+  schemas:
+    ProductStatus:
+      type: integer
+      enum: [0, 1]
+      description: 0 下架，1 上架
+    ProductWriteRequest:
+      type: object
+      required: [sku, name, price, stock, status]
+      properties:
+        sku: { type: string, minLength: 1, maxLength: 64, example: PHONE-001 }
+        name: { type: string, minLength: 1, maxLength: 200, example: 示例商品 }
+        price: { type: number, minimum: 0, multipleOf: 0.01, example: 1999.00 }
+        stock: { type: integer, minimum: 0, maximum: 2147483647, example: 100 }
+        status: { $ref: '#/components/schemas/ProductStatus' }
+        imageUrl: { type: string, maxLength: 1000, nullable: true }
+        description: { type: string, nullable: true }
+    ProductListItem:
+      type: object
+      required: [id, sku, name, price, stock, status, createdAt, updatedAt]
+      properties:
+        id: { type: string, example: '1' }
+        sku: { type: string }
+        name: { type: string }
+        price: { type: number }
+        stock: { type: integer }
+        status: { $ref: '#/components/schemas/ProductStatus' }
+        imageUrl: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    ProductDetail:
+      allOf:
+        - { $ref: '#/components/schemas/ProductListItem' }
+        - type: object
+          properties: { description: { type: string, nullable: true } }
+    ProductPage:
+      type: object
+      required: [items, page, pageSize, total, totalPages]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/ProductListItem' } }
+        page: { type: integer }
+        pageSize: { type: integer }
+        total: { type: integer, format: int64 }
+        totalPages: { type: integer, format: int64 }
+    FieldError:
+      type: object
+      properties: { field: { type: string }, message: { type: string } }
+    ErrorResponse:
+      type: object
+      required: [code, message, timestamp]
+      properties:
+        code: { type: string, example: PRODUCT_NOT_FOUND }
+        message: { type: string, example: 商品不存在 }
+        details: { type: array, nullable: true, items: { $ref: '#/components/schemas/FieldError' } }
+        timestamp: { type: string, format: date-time }
+  responses:
+    BadRequest:
+      description: 请求参数错误
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
+    NotFound:
+      description: 商品不存在
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
+    Conflict:
+      description: SKU 已存在
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
+    InternalError:
+      description: 服务端异常
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
