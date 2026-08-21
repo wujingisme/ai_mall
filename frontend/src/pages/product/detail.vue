@@ -24,6 +24,10 @@ function remove() {
   })
 }
 
+function goToEdit() {
+  uni.navigateTo({ url: `/pages/product/form?id=${id.value}` })
+}
+
 onLoad((query) => { id.value = String(query?.id || '') })
 onShow(load)
 </script>
@@ -42,7 +46,7 @@ onShow(load)
     </view>
     <view class="footer">
       <button class="delete" @click="remove">删除</button>
-      <button class="edit" @click="uni.navigateTo({ url: `/pages/product/form?id=${id}` })">编辑商品</button>
+      <button class="edit" @click="goToEdit">编辑商品</button>
     </view>
   </view>
 </template>

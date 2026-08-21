@@ -1,6 +1,9 @@
 import type { ApiError } from '@/types/product'
 
-const baseUrl = import.meta.env.VITE_API_BASE_URL || ''
+// 正式环境留空时，H5 用浏览器当前域名（同源走相对路径，由部署服务器或后端 CORS 处理）
+const baseUrl =
+  import.meta.env.VITE_API_BASE_URL ||
+  (typeof window !== 'undefined' && window.location ? window.location.origin : '')
 
 export function request<T>(options: UniApp.RequestOptions): Promise<T> {
   return new Promise((resolve, reject) => {
