@@ -1,10 +1,28 @@
 {
-  "name": "AI Mall",
-  "appid": "__UNI__AIMALL",
-  "description": "商品 CRUD 商城应用",
-  "versionName": "1.0.0",
-  "versionCode": "100",
-  "transformPx": false,
-  "h5": { "router": { "mode": "hash" } },
-  "mp-weixin": { "appid": "", "setting": { "urlCheck": false }, "usingComponents": true }
+    "name" : "AI Mall",
+    "appid" : "__UNI__F185FCF",
+    "description" : "商品 CRUD 商城应用",
+    "versionName" : "1.0.1",
+    "versionCode" : 101,
+    "transformPx" : false,
+    "h5" : {
+        "router" : {
+            "mode" : "hash"
+        }
+    },
+    "mp-weixin" : {
+        "appid" : "",
+        "setting" : {
+            "urlCheck" : false
+        },
+        "usingComponents" : true
+    },
+    "app-plus" : {
+        "distribute" : {
+            "ios" : {
+                "dSYMs" : false
+            }
+        }
+    },
+    "vueVersion" : "3"
 }
