@@ -6,15 +6,33 @@ import type { ProductStatus, ProductWriteRequest } from '@/types/product'
 
 const id = ref('')
 const saving = ref(false)
+// 有 id 代表编辑模式，没有 id 代表新增模式。
 const isEdit = computed(() => Boolean(id.value))
-const form = reactive({ sku: '', name: '', price: '', stock: '0', status: 1 as ProductStatus, imageUrl: '', description: '' })
+// 输入框中的价格和库存先用字符串保存，提交时再转换成数字。
+const form = reactive({
+  sku: '',
+  name: '',
+  price: '',
+  stock: '0',
+  status: 1 as ProductStatus,
+  imageUrl: '',
+  description: '',
+})
 
 async function load() {
+  // 编辑模式进入页面后，根据 id 获取原商品并填充表单。
   const data = await productApi.get(id.value)
-  Object.assign(form, { ...data, price: String(data.price), stock: String(data.stock), imageUrl: data.imageUrl || '', description: data.description || '' })
+  Object.assign(form, {
+    ...data,
+    price: String(data.price),
+    stock: String(data.stock),
+    imageUrl: data.imageUrl || '',
+    description: data.description || '',
+  })
 }
 
 function validate() {
+  // 提交前统一校验必填项、长度、价格格式和库存范围。
   if (!form.sku.trim()) return '请输入 SKU'
   if (form.sku.trim().length > 64) return 'SKU 最多 64 个字符'
   if (!form.name.trim()) return '请输入商品名称'
@@ -28,25 +46,36 @@ function validate() {
 async function submit() {
   const message = validate()
   if (message) return uni.showToast({ title: message, icon: 'none' })
+  // 防止连续点击造成重复提交。
   if (saving.value) return
   saving.value = true
+  // 表单值来自输入框是字符串，这里转换成后端需要的请求类型。
   const payload: ProductWriteRequest = {
-    sku: form.sku.trim(), name: form.name.trim(), price: Number(form.price), stock: Number(form.stock),
-    status: form.status, imageUrl: form.imageUrl.trim() || undefined, description: form.description.trim() || undefined,
+    sku: form.sku.trim(),
+    name: form.name.trim(),
+    price: Number(form.price),
+    stock: Number(form.stock),
+    status: form.status,
+    imageUrl: form.imageUrl.trim() || undefined,
+    description: form.description.trim() || undefined,
   }
   try {
     if (isEdit.value) await productApi.update(id.value, payload)
     else await productApi.create(payload)
     uni.showToast({ title: isEdit.value ? '保存成功' : '创建成功' })
     setTimeout(() => uni.navigateBack(), 500)
-  } finally { saving.value = false }
+  } finally {
+    saving.value = false
+  }
 }
 
 function changeStatus(event: any) {
+  // radio 的 value 通常是字符串，转换成 ProductStatus 数字。
   form.status = Number(event.detail.value) as ProductStatus
 }
 
 onLoad((query) => {
+  // 从页面参数读取商品 id，并设置新增/编辑标题。
   id.value = String(query?.id || '')
   uni.setNavigationBarTitle({ title: id.value ? '编辑商品' : '新增商品' })
   if (id.value) load()
@@ -56,18 +85,137 @@ onLoad((query) => {
 <template>
   <view class="page">
     <view class="form">
-      <view class="field"><text class="label">SKU <text class="required">*</text></text><input v-model="form.sku" maxlength="64" placeholder="例如 PHONE-001" /></view>
-      <view class="field"><text class="label">商品名称 <text class="required">*</text></text><input v-model="form.name" maxlength="200" placeholder="请输入商品名称" /></view>
-      <view class="field"><text class="label">价格 <text class="required">*</text></text><view class="input-prefix"><text>¥</text><input v-model="form.price" type="digit" placeholder="0.00" /></view></view>
-      <view class="field"><text class="label">库存 <text class="required">*</text></text><input v-model="form.stock" type="number" placeholder="0" /></view>
-      <view class="field"><text class="label">商品状态 <text class="required">*</text></text><radio-group class="radios" @change="changeStatus"><label><radio value="1" :checked="form.status === 1" color="#2563eb" />上架</label><label><radio value="0" :checked="form.status === 0" color="#2563eb" />下架</label></radio-group></view>
-      <view class="field"><text class="label">主图 URL</text><input v-model="form.imageUrl" maxlength="1000" placeholder="https://example.com/image.jpg" /></view>
-      <view class="field"><text class="label">商品描述</text><textarea v-model="form.description" auto-height maxlength="-1" placeholder="请输入商品描述" /></view>
+      <view class="field">
+        <text class="label"> SKU <text class="required">*</text> </text>
+        <input v-model="form.sku" maxlength="64" placeholder="例如 PHONE-001" />
+      </view>
+
+      <view class="field">
+        <text class="label"> 商品名称 <text class="required">*</text> </text>
+        <input v-model="form.name" maxlength="200" placeholder="请输入商品名称" />
+      </view>
+
+      <view class="field">
+        <text class="label"> 价格 <text class="required">*</text> </text>
+        <view class="input-prefix">
+          <text>¥</text>
+          <input v-model="form.price" type="digit" placeholder="0.00" />
+        </view>
+      </view>
+
+      <view class="field">
+        <text class="label"> 库存 <text class="required">*</text> </text>
+        <input v-model="form.stock" type="number" placeholder="0" />
+      </view>
+
+      <view class="field">
+        <text class="label"> 商品状态 <text class="required">*</text> </text>
+        <radio-group class="radios" @change="changeStatus">
+          <label>
+            <radio value="1" :checked="form.status === 1" color="#2563eb" />
+            上架
+          </label>
+          <label>
+            <radio value="0" :checked="form.status === 0" color="#2563eb" />
+            下架
+          </label>
+        </radio-group>
+      </view>
+
+      <view class="field">
+        <text class="label">主图 URL</text>
+        <input v-model="form.imageUrl" maxlength="1000" placeholder="https://example.com/image.jpg" />
+      </view>
+
+      <view class="field">
+        <text class="label">商品描述</text>
+        <textarea v-model="form.description" auto-height maxlength="-1" placeholder="请输入商品描述" />
+      </view>
     </view>
-    <button class="submit" :loading="saving" :disabled="saving" @click="submit">{{ saving ? '保存中...' : isEdit ? '保存修改' : '创建商品' }}</button>
+    <button class="submit" :loading="saving" :disabled="saving" @click="submit">
+      {{ saving ? '保存中...' : isEdit ? '保存修改' : '创建商品' }}
+    </button>
   </view>
 </template>
 
 <style scoped>
-.page { padding: 24rpx; padding-bottom: 160rpx; }.form { overflow: hidden; padding: 0 28rpx; background: #fff; border-radius: 20rpx; box-shadow: 0 6rpx 24rpx rgba(15, 23, 42, .05); }.field { padding: 26rpx 0; border-bottom: 1rpx solid #e2e8f0; }.field:last-child { border-bottom: 0; }.label { display: block; margin-bottom: 16rpx; color: #334155; font-weight: 600; }.required { color: #dc2626; }.field input, .field textarea, .input-prefix { box-sizing: border-box; width: 100%; min-height: 76rpx; padding: 18rpx 20rpx; border-radius: 12rpx; background: #f8fafc; }.field textarea { min-height: 180rpx; }.input-prefix { display: flex; align-items: center; }.input-prefix input { flex: 1; min-height: auto; padding: 0 0 0 12rpx; }.radios { display: flex; gap: 60rpx; }.radios label { display: flex; align-items: center; gap: 8rpx; }.submit { position: fixed; left: 24rpx; right: 24rpx; bottom: calc(24rpx + env(safe-area-inset-bottom)); color: #fff; background: #2563eb; border-radius: 16rpx; }
+.page {
+  padding: 24rpx;
+  padding-bottom: 160rpx;
+}
+
+.form {
+  overflow: hidden;
+  padding: 0 28rpx;
+  background: #fff;
+  border-radius: 20rpx;
+  box-shadow: 0 6rpx 24rpx rgba(15, 23, 42, 0.05);
+}
+
+.field {
+  padding: 26rpx 0;
+  border-bottom: 1rpx solid #e2e8f0;
+}
+
+.field:last-child {
+  border-bottom: 0;
+}
+
+.label {
+  display: block;
+  margin-bottom: 16rpx;
+  color: #334155;
+  font-weight: 600;
+}
+
+.required {
+  color: #dc2626;
+}
+
+.field input,
+.field textarea,
+.input-prefix {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 76rpx;
+  padding: 18rpx 20rpx;
+  border-radius: 12rpx;
+  background: #f8fafc;
+}
+
+.field textarea {
+  min-height: 180rpx;
+}
+
+.input-prefix {
+  display: flex;
+  align-items: center;
+}
+
+.input-prefix input {
+  flex: 1;
+  min-height: auto;
+  padding: 0 0 0 12rpx;
+}
+
+.radios {
+  display: flex;
+  gap: 60rpx;
+}
+
+.radios label {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.submit {
+  position: fixed;
+  left: 24rpx;
+  right: 24rpx;
+  bottom: calc(24rpx + env(safe-area-inset-bottom));
+  color: #fff;
+  background: #2563eb;
+  border-radius: 16rpx;
+}
 </style>
