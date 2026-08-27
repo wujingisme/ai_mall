@@ -13,6 +13,14 @@ spring:
 server:
   port: ${SERVER_PORT:8080}
 
+auth:
+  # 生产环境必须通过环境变量提供至少 32 字节的随机密钥。
+  jwt-secret: ${JWT_SECRET:change-this-development-secret-at-least-32-bytes}
+  access-token-seconds: ${ACCESS_TOKEN_SECONDS:900}
+  refresh-token-seconds: ${REFRESH_TOKEN_SECONDS:604800}
+  max-login-failures: ${MAX_LOGIN_FAILURES:5}
+  lock-seconds: ${LOGIN_LOCK_SECONDS:900}
+
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true

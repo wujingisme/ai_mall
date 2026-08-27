@@ -1,13 +1,71 @@
 openapi: 3.0.3
 info:
-  title: AI Mall Product API
-  version: 1.0.0
-  description: 商城第一版商品 CRUD API
+  title: AI Mall API
+  version: 1.1.0
+  description: 商城商品与认证 API；本文件是前后端并行开发的唯一接口契约
+x-development-conventions:
+  code-comments:
+    required: true
+    scope: frontend-and-backend
+    rule: 关键业务逻辑、认证流程、安全校验、异常分支和复杂算法必须添加中文注释，说明设计意图；避免只复述代码表面行为。
 servers:
   - url: http://localhost:8080
 tags:
+  - name: Auth
   - name: Products
 paths:
+  /api/v1/auth/login:
+    post:
+      tags: [Auth]
+      summary: 账号密码登录
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/LoginRequest' } } }
+      responses:
+        '200':
+          description: 登录成功
+          content: { application/json: { schema: { $ref: '#/components/schemas/TokenResponse' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '423': { $ref: '#/components/responses/AccountLocked' }
+  /api/v1/auth/refresh:
+    post:
+      tags: [Auth]
+      summary: 刷新访问令牌（刷新令牌单次使用）
+      operationId: refreshToken
+      security: []
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/RefreshTokenRequest' } } }
+      responses:
+        '200':
+          description: 刷新成功，同时轮换 accessToken 和 refreshToken
+          content: { application/json: { schema: { $ref: '#/components/schemas/TokenResponse' } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/v1/auth/logout:
+    post:
+      tags: [Auth]
+      summary: 退出当前会话
+      operationId: logout
+      security: []
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/RefreshTokenRequest' } } }
+      responses:
+        '204': { description: 已退出；重复调用也返回 204 }
+  /api/v1/auth/me:
+    get:
+      tags: [Auth]
+      summary: 获取当前登录用户
+      operationId: getCurrentUser
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: 查询成功
+          content: { application/json: { schema: { $ref: '#/components/schemas/CurrentUser' } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
   /api/v1/products:
     get:
       tags: [Products]
@@ -28,6 +86,7 @@ paths:
       tags: [Products]
       summary: 新增商品
       operationId: createProduct
+      security: [{ bearerAuth: [] }]
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: '#/components/schemas/ProductWriteRequest' } } }
@@ -36,6 +95,8 @@ paths:
           description: 创建成功
           content: { application/json: { schema: { $ref: '#/components/schemas/ProductDetail' } } }
         '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '409': { $ref: '#/components/responses/Conflict' }
   /api/v1/products/{id}:
     parameters:
@@ -56,6 +117,7 @@ paths:
       tags: [Products]
       summary: 编辑商品
       operationId: updateProduct
+      security: [{ bearerAuth: [] }]
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: '#/components/schemas/ProductWriteRequest' } } }
@@ -64,17 +126,64 @@ paths:
           description: 更新成功
           content: { application/json: { schema: { $ref: '#/components/schemas/ProductDetail' } } }
         '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
     delete:
       tags: [Products]
       summary: 删除商品
       operationId: deleteProduct
+      security: [{ bearerAuth: [] }]
       responses:
         '204': { description: 删除成功 }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
   schemas:
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required: [username, password]
+      properties:
+        username: { type: string, minLength: 3, maxLength: 64, example: admin }
+        password: { type: string, minLength: 8, maxLength: 72, format: password, example: Admin123! }
+    RefreshTokenRequest:
+      type: object
+      additionalProperties: false
+      required: [refreshToken]
+      properties:
+        refreshToken: { type: string, minLength: 32 }
+    TokenResponse:
+      type: object
+      additionalProperties: false
+      required: [tokenType, accessToken, expiresIn, refreshToken, refreshExpiresIn, user]
+      properties:
+        tokenType: { type: string, enum: [Bearer] }
+        accessToken: { type: string, description: 短期 JWT }
+        expiresIn: { type: integer, format: int64, example: 900, description: accessToken 剩余有效秒数 }
+        refreshToken: { type: string, description: 不透明的单次使用刷新令牌 }
+        refreshExpiresIn: { type: integer, format: int64, example: 604800, description: refreshToken 剩余有效秒数 }
+        user: { $ref: '#/components/schemas/CurrentUser' }
+    CurrentUser:
+      type: object
+      additionalProperties: false
+      required: [id, username, displayName, roles]
+      properties:
+        id: { type: string, example: '1' }
+        username: { type: string, example: admin }
+        displayName: { type: string, example: 商城管理员 }
+        avatarUrl: { type: string, format: uri, nullable: true }
+        roles:
+          type: array
+          uniqueItems: true
+          items: { type: string, enum: [ADMIN, OPERATOR] }
     ProductStatus:
       type: integer
       enum: [0, 1]
@@ -140,4 +249,15 @@ components:
       content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
     InternalError:
       description: 服务端异常
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
+    Unauthorized:
+      description: 凭证错误、缺失、过期或已撤销
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
+    Forbidden:
+      description: 已登录但权限不足或账号被禁用
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
+    AccountLocked:
+      description: 登录失败次数过多，账号暂时锁定
+      headers:
+        Retry-After: { schema: { type: integer }, description: 建议等待秒数 }
       content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }

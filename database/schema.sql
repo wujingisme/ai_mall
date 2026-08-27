@@ -1,6 +1,35 @@
 CREATE DATABASE IF NOT EXISTS mall DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
 USE mall;
 
+CREATE TABLE IF NOT EXISTS mall_user (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '用户 ID',
+  username VARCHAR(64) NOT NULL COMMENT '登录名',
+  password_hash VARCHAR(100) NOT NULL COMMENT 'BCrypt 密码摘要',
+  display_name VARCHAR(100) NOT NULL COMMENT '显示名称',
+  avatar_url VARCHAR(1000) NULL,
+  roles VARCHAR(200) NOT NULL DEFAULT 'OPERATOR' COMMENT '逗号分隔角色',
+  enabled TINYINT(1) NOT NULL DEFAULT 1,
+  failed_login_attempts INT UNSIGNED NOT NULL DEFAULT 0,
+  locked_until DATETIME(3) NULL,
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_mall_user_username (username)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='商城用户';
+
+CREATE TABLE IF NOT EXISTS auth_session (
+  id CHAR(36) NOT NULL COMMENT '会话 ID',
+  user_id BIGINT UNSIGNED NOT NULL,
+  refresh_token_hash CHAR(64) NOT NULL COMMENT 'SHA-256 摘要',
+  expires_at DATETIME(3) NOT NULL,
+  revoked_at DATETIME(3) NULL,
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_auth_session_token_hash (refresh_token_hash),
+  KEY idx_auth_session_user (user_id),
+  CONSTRAINT fk_auth_session_user FOREIGN KEY (user_id) REFERENCES mall_user(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='认证会话';
+
 CREATE TABLE IF NOT EXISTS product (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '商品 ID',
   sku VARCHAR(64) NOT NULL COMMENT '商品编码',

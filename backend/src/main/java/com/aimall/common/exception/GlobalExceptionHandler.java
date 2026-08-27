@@ -1,5 +1,8 @@
 package com.aimall.common.exception;
 
+import com.aimall.auth.exception.AccountDisabledException;
+import com.aimall.auth.exception.AccountLockedException;
+import com.aimall.auth.exception.InvalidCredentialsException;
 import com.aimall.common.error.ErrorResponse;
 import com.aimall.common.error.FieldErrorDetail;
 import org.springframework.dao.DuplicateKeyException;
@@ -13,6 +16,25 @@ import java.util.List;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    @ExceptionHandler(InvalidCredentialsException.class)
+    ResponseEntity<ErrorResponse> handleInvalidCredentials(InvalidCredentialsException e) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ErrorResponse.of("INVALID_CREDENTIALS", e.getMessage()));
+    }
+
+    @ExceptionHandler(AccountDisabledException.class)
+    ResponseEntity<ErrorResponse> handleAccountDisabled(AccountDisabledException e) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(ErrorResponse.of("ACCOUNT_DISABLED", e.getMessage()));
+    }
+
+    @ExceptionHandler(AccountLockedException.class)
+    ResponseEntity<ErrorResponse> handleAccountLocked(AccountLockedException e) {
+        return ResponseEntity.status(HttpStatus.LOCKED)
+                .header(HttpHeaders.RETRY_AFTER, Long.toString(e.getRetryAfter()))
+                .body(ErrorResponse.of("ACCOUNT_LOCKED", e.getMessage()));
+    }
+
     @ExceptionHandler(ProductNotFoundException.class)
     ResponseEntity<ErrorResponse> handleNotFound(ProductNotFoundException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ErrorResponse.of("PRODUCT_NOT_FOUND", e.getMessage()));

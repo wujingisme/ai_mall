@@ -15,4 +15,5 @@ frontend/unpackage/
 *.jks
 *.log
 .DS_Store
+.m2/
 Thumbs.db
