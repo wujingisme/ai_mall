@@ -1,13 +1,47 @@
 * { box-sizing: border-box; }
-body { margin: 0; min-width: 320px; background: #f5f7fa; color: #1f2329; }
-.app-layout { min-height: 100vh; }
-.brand { height: 64px; display: grid; place-items: center; color: #fff; font-size: 20px; font-weight: 700; letter-spacing: 1px; }
-.app-header { padding: 0 24px; background: #fff; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 1px 4px rgba(0,0,0,.08); z-index: 1; }
-.app-content { padding: 24px; }
-.login-page { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: linear-gradient(135deg, #e6f4ff, #f6ffed); }
-.login-card { width: min(420px, 100%); box-shadow: 0 12px 40px rgba(22,119,255,.14); }
+body { margin: 0; min-width: 320px; background: #f6f7f4; color: #17362d; }
+.app-layout { min-height: 100vh; background: #f6f7f4; }
+.ant-layout-sider { background: linear-gradient(180deg,#173f34,#245d4d) !important; }
+.brand { height: 72px; display: grid; place-items: center; color: #e9cf99; font-size: 18px; font-weight: 800; letter-spacing: 4px; border-bottom: 1px solid rgba(255,255,255,.08); }
+.ant-menu-dark { padding: 12px 10px; background: transparent !important; }
+.ant-menu-dark .ant-menu-item { border-radius: 12px; }
+.app-header { height: 72px; padding: 0 28px; background: rgba(255,255,255,.94) !important; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #e7ece9; box-shadow: 0 4px 18px rgba(31,65,54,.05); z-index: 1; }
+.app-header .ant-avatar { color: #245b4a; background: #e4c57d; font-weight: 800; }
+.app-content { padding: 28px; }
+.app-content > .ant-card { border: 1px solid #e6ece8; border-radius: 18px; box-shadow: 0 8px 28px rgba(31,65,54,.06); }
+.ant-card-head { color: #17362d; font-size: 18px; }
+.ant-btn { font-weight: 600; }
+.ant-btn-primary { background: linear-gradient(135deg,#2b6955,#1d4b3d); }
+.ant-input-affix-wrapper, .ant-select-selector, .ant-input-number { background: #f9fbfa !important; }
+.ant-table-wrapper .ant-table { color: #344e45; }
 .filters { margin-bottom: 20px; }
 .filters .ant-input-affix-wrapper { width: 240px; }
 .filters .ant-select { width: 140px; }
-.image-placeholder { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 6px; background: #f0f0f0; color: #999; font-size: 12px; }
+.image-placeholder { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 10px; background: #e8edea; color: #8b9994; font-size: 11px; letter-spacing: 1px; }
+.login-page { position: relative; min-height: 100vh; padding: 48px 32px 76px; overflow: hidden; display: grid; place-items: center; background: #f3f6f4; }
+.ambient { position: absolute; border-radius: 50%; opacity: .72; }
+.ambient-one { width: 520px; height: 520px; top: -250px; right: -170px; background: rgba(196,224,198,.65); }
+.ambient-two { width: 440px; height: 440px; bottom: -230px; left: -160px; background: rgba(226,199,145,.28); }
+.login-shell { position: relative; z-index: 1; display: flex; width: min(1080px,94vw); min-height: 660px; overflow: hidden; border: 1px solid rgba(30,75,61,.1); border-radius: 34px; background: rgba(255,255,255,.94); box-shadow: 0 32px 80px rgba(28,59,49,.14); }
+.login-brand-panel { position: relative; width: 50%; padding: 64px 58px; overflow: hidden; color: #f8fbf8; background: linear-gradient(145deg,#183f34 0%,#245d4d 62%,#326f5c 100%); }
+.login-brand-panel::after { content: ''; position: absolute; width: 360px; height: 360px; right: -170px; bottom: -150px; border: 70px solid rgba(255,255,255,.06); border-radius: 50%; }
+.brand-mark { width: 54px; height: 54px; display: grid; place-items: center; border-radius: 16px; color: #173f34; background: #e4bd6d; box-shadow: 0 12px 28px rgba(8,31,24,.24); font-size: 29px; font-weight: 800; }
+.brand-name { margin-top: 18px; color: #e9cf99; font-size: 15px; font-weight: 700; letter-spacing: 5px; }
+.login-brand-panel h1 { margin: 84px 0 0; font-size: 42px; line-height: 1.34; }
+.login-brand-panel p { max-width: 370px; margin: 24px 0 64px; color: rgba(244,251,247,.68); font-size: 16px; line-height: 1.8; }
+.brand-feature { display: flex; align-items: center; margin-top: 16px; color: rgba(247,251,249,.82); font-size: 14px; }
+.brand-feature span { width: 22px; height: 22px; margin-right: 12px; display: grid; place-items: center; border-radius: 50%; color: #173f34; background: #e4bd6d; font-size: 12px; font-weight: 800; }
+.login-card { width: 50%; padding: 52px 48px; box-shadow: none !important; background: transparent; }
+.login-card .ant-card-body { padding: 0; }
+.login-card .eyebrow { margin-top: 4px; color: #b5893f; font-size: 12px; font-weight: 700; letter-spacing: 3px; }
+.login-card h2 { margin: 15px 0 4px !important; color: #17362d !important; font-size: 36px !important; }
+.login-card .ant-typography-secondary { margin-bottom: 38px; color: #7b8e87; }
+.login-card .ant-form-item { margin-bottom: 24px; }
+.login-card .ant-form-item-label label { color: #28463c; font-weight: 600; }
+.login-card .ant-input-affix-wrapper { min-height: 56px; padding: 0 17px; border-radius: 14px; }
+.login-card .ant-btn { height: 56px; margin-top: 8px; border-radius: 14px; font-size: 16px; letter-spacing: 4px; }
+.security-tip { margin-top: 24px; text-align: center; color: #98a7a1; font-size: 12px; }
+.mobile-brand { display: none; }
+.copyright { position: absolute; z-index: 1; bottom: 24px; color: #82928c; font-size: 12px; }
+@media (max-width: 760px) { .login-page { padding: 24px 20px 64px; } .login-shell { width: 100%; min-height: auto; border-radius: 26px; } .login-brand-panel { display: none; } .login-card { width: 100%; padding: 36px 26px 34px; } .mobile-brand { margin-bottom: 38px; display: flex; align-items: center; color: #1d4b3d; font-weight: 800; letter-spacing: 3px; } .mobile-brand span { width: 38px; height: 38px; margin-right: 12px; display: grid; place-items: center; border-radius: 11px; background: #e4bd6d; font-size: 20px; letter-spacing: 0; } .login-card h2 { font-size: 31px !important; } }
 @media (max-width: 576px) { .app-content { padding: 12px; } .app-header { padding: 0 12px; } .app-header > strong { display: none; } }

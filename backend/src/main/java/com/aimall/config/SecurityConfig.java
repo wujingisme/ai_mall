@@ -27,7 +27,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/auth/register", "/api/v1/auth/login",
                                 "/api/v1/auth/refresh", "/api/v1/auth/logout").permitAll()
                         .requestMatchers("/api/v1/shop/products/**").permitAll()
-                        .requestMatchers("/api/v1/products/**").hasAnyRole("ADMIN", "OPERATOR")
+                        // 创建后台账号属于高权限操作，只允许超级管理员调用。
+                        .requestMatchers("/api/v1/admin/accounts/**").hasRole("SUPER_ADMIN")
+                        .requestMatchers("/api/v1/products/**").hasAnyRole("SUPER_ADMIN", "ADMIN", "OPERATOR")
                         .anyRequest().authenticated())
                 .exceptionHandling(errors -> errors.authenticationEntryPoint((request, response, exception) -> {
                     response.setStatus(401);

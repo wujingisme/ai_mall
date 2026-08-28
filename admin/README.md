@@ -5,6 +5,7 @@
 ## 第一阶段范围
 
 - 管理员登录、登录态持久化、退出登录
+- 超级管理员创建 ADMIN 或 OPERATOR 后台账号
 - 商品分页查询与名称/SKU 搜索
 - 按上下架状态筛选
 - 商品新增、查看、编辑、删除
@@ -36,6 +37,7 @@
 - `POST /api/v1/auth/refresh`
 - `POST /api/v1/auth/logout`
 - `GET /api/v1/auth/me`
+- `POST /api/v1/admin/accounts`（仅 SUPER_ADMIN）
 - `GET/POST /api/v1/products`
 - `GET/PUT/DELETE /api/v1/products/{id}`
 
@@ -61,6 +63,12 @@ npm run dev
 ```
 
 默认地址为 `http://localhost:5174`。启动前请先运行仓库中的 Spring Boot 后端。
+
+首次使用账号管理前，需要在数据库中把一个可信账号设为超级管理员并重新登录：
+
+```sql
+UPDATE mall_user SET roles = 'SUPER_ADMIN' WHERE username = '你的管理员用户名';
+```
 
 ## 后续扩展
 

@@ -12,6 +12,7 @@ servers:
   - url: http://localhost:8080
 tags:
   - name: Auth
+  - name: AdminAccounts
   - name: Shop
   - name: Products
 paths:
@@ -115,6 +116,26 @@ paths:
           description: 查询成功
           content: { application/json: { schema: { $ref: '#/components/schemas/CurrentUser' } } }
         '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/v1/admin/accounts:
+    post:
+      tags: [AdminAccounts]
+      summary: 超级管理员创建后台账号
+      description: 仅 SUPER_ADMIN 可调用；只能创建 ADMIN 或 OPERATOR，不能通过接口创建超级管理员。
+      operationId: createAdminAccount
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/AdminAccountCreateRequest' } } }
+      responses:
+        '201':
+          description: 后台账号创建成功
+          content: { application/json: { schema: { $ref: '#/components/schemas/CurrentUser' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409':
+          description: 用户名已存在
+          content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
   /api/v1/products:
     get:
       tags: [Products]
@@ -230,6 +251,15 @@ components:
         username: { type: string, minLength: 3, maxLength: 64, pattern: '^[A-Za-z0-9_]+$', example: mall_user }
         password: { type: string, minLength: 6, maxLength: 72, format: password, example: '123456', description: 至少 6 位，不限制字符类型 }
         displayName: { type: string, minLength: 1, maxLength: 100, example: 商城用户 }
+    AdminAccountCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [username, password, displayName, role]
+      properties:
+        username: { type: string, minLength: 3, maxLength: 64, pattern: '^[A-Za-z0-9_]+$', example: operator_01 }
+        password: { type: string, minLength: 6, maxLength: 72, format: password, example: '123456' }
+        displayName: { type: string, minLength: 1, maxLength: 100, example: 商品运营 }
+        role: { type: string, enum: [ADMIN, OPERATOR], example: OPERATOR }
     LoginRequest:
       type: object
       additionalProperties: false
@@ -266,7 +296,7 @@ components:
         roles:
           type: array
           uniqueItems: true
-          items: { type: string, enum: [ADMIN, OPERATOR] }
+          items: { type: string, enum: [CUSTOMER, SUPER_ADMIN, ADMIN, OPERATOR] }
     ProductStatus:
       type: integer
       enum: [0, 1]

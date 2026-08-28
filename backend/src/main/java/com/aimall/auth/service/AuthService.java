@@ -2,6 +2,7 @@ package com.aimall.auth.service;
 
 import com.aimall.auth.dto.LoginRequest;
 import com.aimall.auth.dto.RegisterRequest;
+import com.aimall.auth.dto.AdminAccountCreateRequest;
 import com.aimall.auth.dto.RefreshTokenRequest;
 import com.aimall.auth.entity.AuthSession;
 import com.aimall.auth.entity.MallUser;
@@ -58,16 +59,25 @@ public class AuthService {
 
     @Transactional
     public CurrentUserResponse register(RegisterRequest request) {
-        // 自助注册只授予最低业务角色，禁止客户端借注册接口提升权限。
+        // 消费者自助注册只能获得 CUSTOMER，绝不能获得可访问管理后台的角色。
+        return createUser(request.username(), request.password(), request.displayName(), "CUSTOMER");
+    }
+
+    @Transactional
+    public CurrentUserResponse createAdminAccount(AdminAccountCreateRequest request) {
+        return createUser(request.username(), request.password(), request.displayName(), request.role());
+    }
+
+    private CurrentUserResponse createUser(String username, String password, String displayName, String role) {
         boolean exists = userMapper.selectCount(new LambdaQueryWrapper<MallUser>()
-                .eq(MallUser::getUsername, request.username())) > 0;
+                .eq(MallUser::getUsername, username)) > 0;
         if (exists) throw new UsernameAlreadyExistsException();
 
         MallUser user = new MallUser();
-        user.setUsername(request.username());
-        user.setPasswordHash(passwordEncoder.encode(request.password()));
-        user.setDisplayName(request.displayName());
-        user.setRoles("OPERATOR");
+        user.setUsername(username);
+        user.setPasswordHash(passwordEncoder.encode(password));
+        user.setDisplayName(displayName);
+        user.setRoles(role);
         user.setEnabled(true);
         user.setFailedLoginAttempts(0);
         try {
@@ -78,7 +88,7 @@ public class AuthService {
         }
         log.info("注册成功: userId={}", user.getId());
         return new CurrentUserResponse(user.getId().toString(), user.getUsername(),
-                user.getDisplayName(), null, List.of("OPERATOR"));
+                user.getDisplayName(), null, List.of(role));
     }
 
     // 登录失败仍需提交失败次数与锁定时间，因此认证类异常不能触发事务回滚。

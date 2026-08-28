@@ -3,5 +3,7 @@ import { getSession } from '../utils/auth';
 
 export default function ProtectedRoute() {
   const location = useLocation();
-  return getSession()?.accessToken ? <Outlet /> : <Navigate to="/login" replace state={{ from: location }} />;
+  const session = getSession();
+  const canUseAdmin = session?.user.roles.some((role) => ['SUPER_ADMIN', 'ADMIN', 'OPERATOR'].includes(role));
+  return session?.accessToken && canUseAdmin ? <Outlet /> : <Navigate to="/login" replace state={{ from: location }} />;
 }

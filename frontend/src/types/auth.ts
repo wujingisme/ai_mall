@@ -1,4 +1,4 @@
-export type UserRole = 'ADMIN' | 'OPERATOR'
+export type UserRole = 'CUSTOMER' | 'SUPER_ADMIN' | 'ADMIN' | 'OPERATOR'
 
 export interface LoginRequest {
   username: string

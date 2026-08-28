@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS mall_user (
   password_hash VARCHAR(100) NOT NULL COMMENT 'BCrypt 密码摘要',
   display_name VARCHAR(100) NOT NULL COMMENT '显示名称',
   avatar_url VARCHAR(1000) NULL,
-  roles VARCHAR(200) NOT NULL DEFAULT 'OPERATOR' COMMENT '逗号分隔角色',
+  roles VARCHAR(200) NOT NULL DEFAULT 'CUSTOMER' COMMENT '逗号分隔角色：CUSTOMER、OPERATOR、ADMIN、SUPER_ADMIN',
   enabled TINYINT(1) NOT NULL DEFAULT 1,
   failed_login_attempts INT UNSIGNED NOT NULL DEFAULT 0,
   locked_until DATETIME(3) NULL,
@@ -16,6 +16,9 @@ CREATE TABLE IF NOT EXISTS mall_user (
   PRIMARY KEY (id),
   UNIQUE KEY uk_mall_user_username (username)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='商城用户';
+
+-- 首次部署时需要由运维手动把一个可信账号提升为超级管理员，之后才能在后台创建其他管理账号。
+-- UPDATE mall_user SET roles = 'SUPER_ADMIN' WHERE username = '你的超级管理员用户名';
 
 CREATE TABLE IF NOT EXISTS auth_session (
   id CHAR(36) NOT NULL COMMENT '会话 ID',

@@ -29,14 +29,14 @@ class AuthControllerTest {
             .setControllerAdvice(new GlobalExceptionHandler()).build();
 
     @Test
-    void registerCreatesOperator() throws Exception {
-        var user = new CurrentUserResponse("2", "new_user", "新用户", null, List.of("OPERATOR"));
+    void registerCreatesCustomer() throws Exception {
+        var user = new CurrentUserResponse("2", "new_user", "新用户", null, List.of("CUSTOMER"));
         when(service.register(any())).thenReturn(user);
         mvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\":\"new_user\",\"password\":\"User123!\",\"displayName\":\"新用户\"}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.username").value("new_user"))
-                .andExpect(jsonPath("$.roles[0]").value("OPERATOR"));
+                .andExpect(jsonPath("$.roles[0]").value("CUSTOMER"));
     }
 
     @Test
