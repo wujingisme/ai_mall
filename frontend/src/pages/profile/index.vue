@@ -1,11 +1,26 @@
 <script setup lang="ts">
-function goLogin() { uni.navigateTo({ url: '/pages/auth/login' }) }
+import { computed, ref } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
+import type { CurrentUser } from '@/types/auth'
+import { getCurrentUser } from '@/utils/auth-storage'
+
+const user = ref<CurrentUser | null>(null)
+const avatarText = computed(() => (user.value?.displayName || user.value?.username || 'A').slice(0, 1).toUpperCase())
+
+// tabBar 页面会被缓存，因此每次进入“我的”页面都重新读取最新登录状态。
+onShow(() => {
+  user.value = getCurrentUser()
+})
+
+function goLogin() {
+  if (!user.value) uni.navigateTo({ url: '/pages/auth/login' })
+}
 function comingSoon() { uni.showToast({ title: '功能即将上线', icon: 'none' }) }
 </script>
 
 <template>
   <view class="page">
-    <view class="profile" @click="goLogin"><view class="avatar">A</view><view><text class="name">登录 / 注册</text><text class="hint">登录后享受完整购物体验</text></view><text class="arrow">›</text></view>
+    <view class="profile" @click="goLogin"><view class="avatar">{{ avatarText }}</view><view><text class="name">{{ user?.displayName || user?.username || '登录 / 注册' }}</text><text class="hint">{{ user ? `账号：${user.username}` : '登录后享受完整购物体验' }}</text></view><text v-if="!user" class="arrow">›</text></view>
     <view class="orders"><view class="heading"><text>我的订单</text><text @click="comingSoon">全部订单 ›</text></view><view class="order-grid"><view @click="comingSoon"><text>◇</text><text>待付款</text></view><view @click="comingSoon"><text>▱</text><text>待发货</text></view><view @click="comingSoon"><text>▤</text><text>待收货</text></view><view @click="comingSoon"><text>☆</text><text>待评价</text></view></view></view>
     <view class="menu"><view @click="comingSoon"><text>收货地址</text><text>›</text></view><view @click="comingSoon"><text>优惠券</text><text>›</text></view><view @click="comingSoon"><text>收藏商品</text><text>›</text></view><view @click="comingSoon"><text>联系客服</text><text>›</text></view></view>
   </view>

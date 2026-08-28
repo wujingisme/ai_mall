@@ -1,45 +1,32 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { authApi } from '@/api/auth'
+import { saveAuthSession } from '@/utils/auth-storage'
 
-const phone = ref('')
-const code = ref('')
+const username = ref('')
+const displayName = ref('')
 const password = ref('')
 const confirmPassword = ref('')
 const agreed = ref(false)
 const showPassword = ref(false)
 const submitting = ref(false)
-const countdown = ref(0)
 
 const canSubmit = computed(
   () =>
-    /^1\d{10}$/.test(phone.value) &&
-    code.value.length >= 4 &&
+    /^[A-Za-z0-9_]{3,64}$/.test(username.value) &&
+    displayName.value.trim().length > 0 &&
     password.value.length >= 6 &&
     password.value === confirmPassword.value &&
     agreed.value,
 )
 
-function sendCode() {
-  if (!/^1\d{10}$/.test(phone.value)) {
-    uni.showToast({ title: '请输入正确的手机号', icon: 'none' })
+async function submit() {
+  if (!/^[A-Za-z0-9_]{3,64}$/.test(username.value)) {
+    uni.showToast({ title: '用户名需为 3-64 位字母、数字或下划线', icon: 'none' })
     return
   }
-  if (countdown.value > 0) return
-  countdown.value = 60
-  const timer = setInterval(() => {
-    countdown.value -= 1
-    if (countdown.value <= 0) clearInterval(timer)
-  }, 1000)
-  uni.showToast({ title: '验证码已发送', icon: 'none' })
-}
-
-function submit() {
-  if (!/^1\d{10}$/.test(phone.value)) {
-    uni.showToast({ title: '请输入正确的手机号', icon: 'none' })
-    return
-  }
-  if (code.value.length < 4) {
-    uni.showToast({ title: '请输入验证码', icon: 'none' })
+  if (!displayName.value.trim()) {
+    uni.showToast({ title: '请输入昵称', icon: 'none' })
     return
   }
   if (password.value.length < 6) {
@@ -55,12 +42,25 @@ function submit() {
     return
   }
 
-  submitting.value = true
-  setTimeout(() => {
+  try {
+    submitting.value = true
+    const registerData = {
+      username: username.value.trim(),
+      password: password.value,
+      displayName: displayName.value.trim(),
+    }
+    // 后端注册接口只创建账号；注册成功后再登录，以获得完整令牌并实现“注册并登录”。
+    await authApi.register(registerData)
+    const session = await authApi.login({ username: registerData.username, password: registerData.password })
+    saveAuthSession(session, true)
     submitting.value = false
     uni.showToast({ title: '注册成功', icon: 'success' })
-    setTimeout(() => uni.navigateBack(), 700)
-  }, 500)
+    uni.switchTab({ url: '/pages/profile/index' })
+  } catch {
+    // 请求工具已经展示用户名重复、参数错误或网络异常等后端提示。
+  } finally {
+    submitting.value = false
+  }
 }
 
 function goBack() {
@@ -105,28 +105,23 @@ function showAgreement(name: string) {
         </view>
 
         <view class="field">
-          <text class="label">手机号</text>
+          <text class="label">用户名</text>
           <view class="input-wrap">
-            <text class="prefix">+86</text>
-            <view class="divider" />
-            <input v-model="phone" class="input" type="number" maxlength="11" placeholder="请输入手机号" placeholder-class="placeholder" />
+            <input v-model="username" class="input" maxlength="64" placeholder="3-64 位字母、数字或下划线" placeholder-class="placeholder" />
           </view>
         </view>
 
         <view class="field compact-field">
-          <text class="label">验证码</text>
+          <text class="label">昵称</text>
           <view class="input-wrap">
-            <input v-model="code" class="input" type="number" maxlength="6" placeholder="请输入验证码" placeholder-class="placeholder" />
-            <button class="code-button" :disabled="countdown > 0" @click="sendCode">
-              {{ countdown > 0 ? `${countdown}s 后重试` : '获取验证码' }}
-            </button>
+            <input v-model="displayName" class="input" maxlength="100" placeholder="请输入商城昵称" placeholder-class="placeholder" />
           </view>
         </view>
 
         <view class="field compact-field">
           <text class="label">设置密码</text>
           <view class="input-wrap">
-            <input v-model="password" class="input" :password="!showPassword" placeholder="至少 6 位字符" placeholder-class="placeholder" />
+            <input v-model="password" class="input" :password="!showPassword" maxlength="72" placeholder="至少 6 位，不限制字符类型" placeholder-class="placeholder" />
             <button class="text-button" @click="showPassword = !showPassword">{{ showPassword ? '隐藏' : '显示' }}</button>
           </view>
         </view>

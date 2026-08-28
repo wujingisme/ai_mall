@@ -1,9 +1,13 @@
 import { request } from '@/utils/request'
-import type { CurrentUser, LoginRequest, RefreshTokenRequest, TokenResponse } from '@/types/auth'
+import type { CurrentUser, LoginRequest, RefreshTokenRequest, RegisterRequest, TokenResponse } from '@/types/auth'
 
 const resource = '/api/v1/auth'
 
 export const authApi = {
+  // 基础注册暂不依赖短信验证码，只提交用户名、密码和用户昵称。
+  register: (data: RegisterRequest) =>
+    request<CurrentUser>({ url: `${resource}/register`, method: 'POST', data }),
+
   // 使用用户名和密码登录；成功后返回用户信息及一组访问、刷新令牌。
   login: (data: LoginRequest) =>
     request<TokenResponse>({ url: `${resource}/login`, method: 'POST', data }),

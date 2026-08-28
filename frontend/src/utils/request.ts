@@ -1,4 +1,5 @@
 import type { ApiError } from '@/types/product'
+import { getAccessToken } from '@/utils/auth-storage'
 
 // 统一接口前缀：开发环境通常为空，生产环境可配置线上服务器地址。
 // 为空时，H5 会使用当前页面域名，并交给 Nginx 的 /api/ 代理转发。
@@ -7,11 +8,17 @@ const baseUrl =
 
 export function request<T>(options: UniApp.RequestOptions): Promise<T> {
   return new Promise((resolve, reject) => {
+    const accessToken = getAccessToken()
     uni.request({
       ...options,
       // 在调用方传入的相对路径前拼接接口前缀，并统一设置 JSON 请求头。
       url: `${baseUrl}${options.url}`,
-      header: { 'Content-Type': 'application/json', ...options.header },
+      // 已登录请求自动携带访问令牌，业务页面无需重复拼接 Authorization。
+      header: {
+        'Content-Type': 'application/json',
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        ...options.header,
+      },
       success: (response) => {
         // 2xx 表示请求成功，泛型 T 对应调用方期望的数据类型。
         if (response.statusCode >= 200 && response.statusCode < 300) {

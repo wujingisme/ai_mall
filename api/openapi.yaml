@@ -228,7 +228,7 @@ components:
       required: [username, password, displayName]
       properties:
         username: { type: string, minLength: 3, maxLength: 64, pattern: '^[A-Za-z0-9_]+$', example: mall_user }
-        password: { type: string, minLength: 8, maxLength: 72, format: password, example: User123! }
+        password: { type: string, minLength: 6, maxLength: 72, format: password, example: '123456', description: 至少 6 位，不限制字符类型 }
         displayName: { type: string, minLength: 1, maxLength: 100, example: 商城用户 }
     LoginRequest:
       type: object
@@ -236,7 +236,7 @@ components:
       required: [username, password]
       properties:
         username: { type: string, minLength: 3, maxLength: 64, example: admin }
-        password: { type: string, minLength: 8, maxLength: 72, format: password, example: Admin123! }
+        password: { type: string, minLength: 6, maxLength: 72, format: password, example: '123456', description: 至少 6 位，不限制字符类型 }
     RefreshTokenRequest:
       type: object
       additionalProperties: false

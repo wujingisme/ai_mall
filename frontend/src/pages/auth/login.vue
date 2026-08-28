@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { authApi } from '@/api/auth'
+import { saveAuthSession } from '@/utils/auth-storage'
 
 const account = ref('')
 const password = ref('')
@@ -13,7 +15,7 @@ function toggleRemember() {
   remember.value = !remember.value
 }
 
-function submit() {
+async function submit() {
   if (!account.value.trim()) {
     uni.showToast({ title: '请输入账号', icon: 'none' })
     return
@@ -23,11 +25,21 @@ function submit() {
     return
   }
 
-  submitting.value = true
-  setTimeout(() => {
+  try {
+    submitting.value = true
+    // 必须以接口返回为准保存会话，不能只跳转页面模拟登录成功。
+    const session = await authApi.login({
+      username: account.value.trim(),
+      password: password.value,
+    })
+    saveAuthSession(session, remember.value)
+    uni.showToast({ title: '登录成功', icon: 'success' })
+    uni.switchTab({ url: '/pages/profile/index' })
+  } catch {
+    // 请求工具已经展示后端错误信息，这里只负责恢复按钮状态。
+  } finally {
     submitting.value = false
-    uni.reLaunch({ url: '/pages/product/list' })
-  }, 450)
+  }
 }
 
 function forgotPassword() {
