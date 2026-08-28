@@ -3,6 +3,8 @@ package com.aimall.shop.controller;
 import com.aimall.shop.service.ShopProductService;
 import com.aimall.shop.vo.*;
 import com.aimall.config.SecurityConfig;
+import com.aimall.auth.service.JwtService;
+import com.aimall.auth.mapper.MallUserMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -22,6 +24,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class ShopProductControllerTest {
     @Autowired MockMvc mvc;
     @MockitoBean ShopProductService shopProductService;
+    @MockitoBean JwtService jwtService;
+    @MockitoBean MallUserMapper mallUserMapper;
 
     @Test
     void listsConsumerProductsWithoutAdminFields() throws Exception {

@@ -4,6 +4,7 @@ import com.aimall.auth.dto.LoginRequest;
 import com.aimall.auth.exception.AccountLockedException;
 import com.aimall.auth.exception.InvalidCredentialsException;
 import com.aimall.auth.exception.UsernameAlreadyExistsException;
+import com.aimall.auth.dto.RefreshTokenRequest;
 import com.aimall.auth.service.AuthService;
 import com.aimall.auth.vo.CurrentUserResponse;
 import com.aimall.auth.vo.TokenResponse;
@@ -18,7 +19,9 @@ import java.util.List;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 
 class AuthControllerTest {
     private final AuthService service = mock(AuthService.class);
@@ -87,5 +90,32 @@ class AuthControllerTest {
         mvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\":\"admin\",\"password\":\"Wrong123!\"}"))
                 .andExpect(status().isLocked()).andExpect(header().string("Retry-After", "900"));
+    }
+
+    @Test
+    void refreshRotatesTokens() throws Exception {
+        var user = new CurrentUserResponse("1", "admin", "商城管理员", null, List.of("ADMIN"));
+        when(service.refresh(any(RefreshTokenRequest.class))).thenReturn(new TokenResponse("Bearer", "new-jwt", 900,
+                "a-new-refresh-token-with-more-than-32-characters", 604800, user));
+        mvc.perform(post("/api/v1/auth/refresh").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"refreshToken\":\"an-old-refresh-token-with-more-than-32-characters\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.accessToken").value("new-jwt"));
+    }
+
+    @Test
+    void logoutIsNoContent() throws Exception {
+        mvc.perform(post("/api/v1/auth/logout").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"refreshToken\":\"a-refresh-token-with-more-than-32-characters\"}"))
+                .andExpect(status().isNoContent());
+        verify(service).logout(any(RefreshTokenRequest.class));
+    }
+
+    @Test
+    void meReturnsAuthenticatedUser() throws Exception {
+        var user = new CurrentUserResponse("1", "admin", "商城管理员", null, List.of("ADMIN"));
+        when(service.currentUser("1")).thenReturn(user);
+        mvc.perform(get("/api/v1/auth/me")
+                        .principal(new UsernamePasswordAuthenticationToken("1", null, List.of())))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.username").value("admin"));
     }
 }

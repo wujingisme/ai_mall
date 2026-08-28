@@ -2,6 +2,7 @@ package com.aimall.auth.service;
 
 import com.aimall.auth.dto.LoginRequest;
 import com.aimall.auth.dto.RegisterRequest;
+import com.aimall.auth.dto.RefreshTokenRequest;
 import com.aimall.auth.entity.AuthSession;
 import com.aimall.auth.entity.MallUser;
 import com.aimall.auth.exception.*;
@@ -10,6 +11,7 @@ import com.aimall.auth.mapper.MallUserMapper;
 import com.aimall.auth.vo.CurrentUserResponse;
 import com.aimall.auth.vo.TokenResponse;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -100,23 +102,77 @@ public class AuthService {
         user.setLockedUntil(null);
         userMapper.updateById(user);
 
+        TokenResponse response = createSession(user, now);
+        log.info("登录成功: userId={}", user.getId());
+        return response;
+    }
+
+    @Transactional
+    public TokenResponse refresh(RefreshTokenRequest request) {
+        LocalDateTime now = LocalDateTime.now();
+        String tokenHash = sha256(request.refreshToken());
+        AuthSession oldSession = sessionMapper.selectOne(new LambdaQueryWrapper<AuthSession>()
+                .eq(AuthSession::getRefreshTokenHash, tokenHash));
+        if (oldSession == null || oldSession.getRevokedAt() != null || !oldSession.getExpiresAt().isAfter(now)) {
+            throw new RefreshTokenInvalidException();
+        }
+
+        // 条件更新保证同一个刷新令牌即使被并发调用，也只能有一个请求完成轮换。
+        int updated = sessionMapper.update(null, new LambdaUpdateWrapper<AuthSession>()
+                .eq(AuthSession::getId, oldSession.getId())
+                .isNull(AuthSession::getRevokedAt)
+                .set(AuthSession::getRevokedAt, now));
+        if (updated != 1) throw new RefreshTokenInvalidException();
+
+        MallUser user = userMapper.selectById(oldSession.getUserId());
+        if (user == null) throw new RefreshTokenInvalidException();
+        if (!Boolean.TRUE.equals(user.getEnabled())) throw new AccountDisabledException();
+        TokenResponse response = createSession(user, now);
+        log.info("刷新令牌轮换成功: userId={}, oldSessionId={}", user.getId(), oldSession.getId());
+        return response;
+    }
+
+    @Transactional
+    public void logout(RefreshTokenRequest request) {
+        LocalDateTime now = LocalDateTime.now();
+        // 退出必须幂等：令牌不存在或已撤销时也直接视为成功。
+        sessionMapper.update(null, new LambdaUpdateWrapper<AuthSession>()
+                .eq(AuthSession::getRefreshTokenHash, sha256(request.refreshToken()))
+                .isNull(AuthSession::getRevokedAt)
+                .set(AuthSession::getRevokedAt, now));
+        log.info("退出登录完成");
+    }
+
+    public CurrentUserResponse currentUser(String userId) {
+        MallUser user;
+        try {
+            user = userMapper.selectById(Long.valueOf(userId));
+        } catch (NumberFormatException e) {
+            throw new InvalidCredentialsException();
+        }
+        if (user == null) throw new InvalidCredentialsException();
+        if (!Boolean.TRUE.equals(user.getEnabled())) throw new AccountDisabledException();
+        return toCurrentUser(user);
+    }
+
+    private TokenResponse createSession(MallUser user, LocalDateTime now) {
         String refreshToken = randomToken();
         AuthSession session = new AuthSession();
-        String sessionId = UUID.randomUUID().toString();
-        session.setId(sessionId);
+        session.setId(UUID.randomUUID().toString());
         session.setUserId(user.getId());
         session.setRefreshTokenHash(sha256(refreshToken));
         session.setExpiresAt(now.plusSeconds(refreshTokenSeconds));
         session.setCreatedAt(now);
         sessionMapper.insert(session);
-        log.info("登录成功: userId={}, sessionId={}", user.getId(), sessionId);
+        return new TokenResponse("Bearer", jwtService.createAccessToken(user), accessTokenSeconds,
+                refreshToken, refreshTokenSeconds, toCurrentUser(user));
+    }
 
+    private CurrentUserResponse toCurrentUser(MallUser user) {
         List<String> roles = Arrays.stream(user.getRoles().split(",")).map(String::trim)
                 .filter(role -> !role.isEmpty()).distinct().toList();
-        CurrentUserResponse currentUser = new CurrentUserResponse(user.getId().toString(), user.getUsername(),
+        return new CurrentUserResponse(user.getId().toString(), user.getUsername(),
                 user.getDisplayName(), user.getAvatarUrl(), roles);
-        return new TokenResponse("Bearer", jwtService.createAccessToken(user), accessTokenSeconds,
-                refreshToken, refreshTokenSeconds, currentUser);
     }
 
     private void recordFailure(MallUser user, LocalDateTime now) {

@@ -4,6 +4,7 @@ import com.aimall.auth.exception.AccountDisabledException;
 import com.aimall.auth.exception.AccountLockedException;
 import com.aimall.auth.exception.InvalidCredentialsException;
 import com.aimall.auth.exception.UsernameAlreadyExistsException;
+import com.aimall.auth.exception.RefreshTokenInvalidException;
 import com.aimall.common.error.ErrorResponse;
 import com.aimall.common.error.FieldErrorDetail;
 import org.springframework.dao.DuplicateKeyException;
@@ -17,6 +18,12 @@ import java.util.List;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    @ExceptionHandler(RefreshTokenInvalidException.class)
+    ResponseEntity<ErrorResponse> handleRefreshTokenInvalid(RefreshTokenInvalidException e) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ErrorResponse.of("REFRESH_TOKEN_INVALID", e.getMessage()));
+    }
+
     @ExceptionHandler(UsernameAlreadyExistsException.class)
     ResponseEntity<ErrorResponse> handleUsernameConflict(UsernameAlreadyExistsException e) {
         return ResponseEntity.status(HttpStatus.CONFLICT)

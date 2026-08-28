@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { onLoad } from '@dcloudio/uni-app'
 import { authApi } from '@/api/auth'
 import { saveAuthSession } from '@/utils/auth-storage'
 
@@ -8,8 +9,16 @@ const password = ref('')
 const remember = ref(true)
 const showPassword = ref(false)
 const submitting = ref(false)
+const redirectPath = ref('')
 
-const canSubmit = computed(() => account.value.trim().length > 0 && password.value.length >= 6)
+onLoad((query) => {
+  let candidate = ''
+  try { candidate = typeof query?.redirect === 'string' ? decodeURIComponent(query.redirect) : '' } catch { candidate = '' }
+  // 只接受应用内绝对路径，避免登录后被构造为外部开放重定向。
+  redirectPath.value = candidate.startsWith('/') && !candidate.startsWith('//') ? candidate : ''
+})
+
+const canSubmit = computed(() => account.value.trim().length > 0 && password.value.length >= 8)
 
 function toggleRemember() {
   remember.value = !remember.value
@@ -20,8 +29,8 @@ async function submit() {
     uni.showToast({ title: '请输入账号', icon: 'none' })
     return
   }
-  if (password.value.length < 6) {
-    uni.showToast({ title: '密码至少需要 6 位', icon: 'none' })
+  if (password.value.length < 8) {
+    uni.showToast({ title: '密码至少需要 8 位', icon: 'none' })
     return
   }
 
@@ -34,7 +43,10 @@ async function submit() {
     })
     saveAuthSession(session, remember.value)
     uni.showToast({ title: '登录成功', icon: 'success' })
-    uni.switchTab({ url: '/pages/profile/index' })
+    const target = redirectPath.value || '/pages/profile/index'
+    const tabPages = ['/pages/product/list', '/pages/cart/index', '/pages/profile/index']
+    if (tabPages.includes(target.split('?')[0])) uni.switchTab({ url: target })
+    else uni.redirectTo({ url: target })
   } catch {
     // 请求工具已经展示后端错误信息，这里只负责恢复按钮状态。
   } finally {

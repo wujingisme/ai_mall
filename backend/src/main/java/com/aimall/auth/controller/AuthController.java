@@ -2,11 +2,13 @@ package com.aimall.auth.controller;
 
 import com.aimall.auth.dto.LoginRequest;
 import com.aimall.auth.dto.RegisterRequest;
+import com.aimall.auth.dto.RefreshTokenRequest;
 import com.aimall.auth.service.AuthService;
 import com.aimall.auth.vo.CurrentUserResponse;
 import com.aimall.auth.vo.TokenResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -25,5 +27,21 @@ public class AuthController {
     @PostMapping("/login")
     public TokenResponse login(@Valid @RequestBody LoginRequest request) {
         return authService.login(request);
+    }
+
+    @PostMapping("/refresh")
+    public TokenResponse refresh(@Valid @RequestBody RefreshTokenRequest request) {
+        return authService.refresh(request);
+    }
+
+    @PostMapping("/logout")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void logout(@Valid @RequestBody RefreshTokenRequest request) {
+        authService.logout(request);
+    }
+
+    @GetMapping("/me")
+    public CurrentUserResponse me(Authentication authentication) {
+        return authService.currentUser(authentication.getPrincipal().toString());
     }
 }
