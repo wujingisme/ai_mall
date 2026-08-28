@@ -1,7 +1,7 @@
 {
   "name": "AI Mall",
   "appid": "__UNI__F185FCF",
-  "description": "商品 CRUD 商城应用",
+  "description": "面向消费者的 AI Mall 购物应用",
   "versionName": "1.0.1",
   "versionCode": 102,
   "transformPx": false,

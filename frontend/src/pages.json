@@ -2,21 +2,44 @@
   "pages": [
     {
       "path": "pages/product/list",
-      "style": { "navigationBarTitleText": "商品管理", "enablePullDownRefresh": true }
+      "style": { "navigationStyle": "custom", "enablePullDownRefresh": true }
+    },
+    {
+      "path": "pages/auth/login",
+      "style": { "navigationStyle": "custom" }
+    },
+    {
+      "path": "pages/auth/register",
+      "style": { "navigationStyle": "custom" }
     },
     {
       "path": "pages/product/detail",
       "style": { "navigationBarTitleText": "商品详情" }
     },
     {
-      "path": "pages/product/form",
-      "style": { "navigationBarTitleText": "商品信息" }
+      "path": "pages/cart/index",
+      "style": { "navigationBarTitleText": "购物车" }
+    },
+    {
+      "path": "pages/profile/index",
+      "style": { "navigationBarTitleText": "我的" }
     }
   ],
   "globalStyle": {
     "navigationBarTextStyle": "black",
     "navigationBarBackgroundColor": "#ffffff",
     "backgroundColor": "#f5f6f8"
+  },
+  "tabBar": {
+    "color": "#8a9893",
+    "selectedColor": "#245b4a",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "white",
+    "list": [
+      { "pagePath": "pages/product/list", "text": "首页" },
+      { "pagePath": "pages/cart/index", "text": "购物车" },
+      { "pagePath": "pages/profile/index", "text": "我的" }
+    ]
   },
   "condition": {
     //模式配置，仅开发期间生效

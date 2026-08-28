@@ -1,192 +1,71 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { onLoad, onShow } from '@dcloudio/uni-app'
-import { productApi } from '@/api/product'
-import type { ProductDetail } from '@/types/product'
+import { onLoad } from '@dcloudio/uni-app'
+import { shopApi } from '@/api/shop'
+import type { ShopProductDetail } from '@/types/shop'
 
 const id = ref('')
-const product = ref<ProductDetail>()
+const product = ref<ShopProductDetail>()
 
-// 根据页面参数加载商品详情。
 async function load() {
-  if (id.value) product.value = await productApi.get(id.value)
+  if (id.value) product.value = await shopApi.get(id.value)
 }
 
-// 弹窗确认后删除当前商品，并返回上一页。
-function remove() {
+// 购物车暂存本地；后续接入服务端购物车时只需替换这一层存储逻辑。
+function addToCart() {
   if (!product.value) return
-  uni.showModal({
-    title: '删除商品',
-    content: `确定删除“${product.value.name}”吗？`,
-    confirmColor: '#dc2626',
-    success: async ({ confirm }) => {
-      if (!confirm) return
-      await productApi.remove(id.value)
-      uni.showToast({ title: '删除成功' })
-      setTimeout(() => uni.navigateBack(), 500)
-    },
-  })
+  if (product.value.soldOut) {
+    uni.showToast({ title: '商品已售罄', icon: 'none' })
+    return
+  }
+  const cart = uni.getStorageSync('mall_cart') || []
+  const existed = cart.find((item: { id: string }) => item.id === product.value?.id)
+  if (existed) existed.quantity += 1
+  else cart.push({ ...product.value, quantity: 1 })
+  uni.setStorageSync('mall_cart', cart)
+  uni.showToast({ title: '已加入购物车', icon: 'success' })
 }
 
-// 跳转到当前商品的编辑页面。
-function goToEdit() {
-  uni.navigateTo({ url: `/pages/product/form?id=${id.value}` })
+function buyNow() {
+  if (product.value?.soldOut) {
+    uni.showToast({ title: '商品已售罄', icon: 'none' })
+    return
+  }
+  addToCart()
+  uni.switchTab({ url: '/pages/cart/index' })
+}
+
+function goHome() {
+  uni.switchTab({ url: '/pages/product/list' })
 }
 
 onLoad((query) => {
   id.value = String(query?.id || '')
+  load()
 })
-onShow(load)
 </script>
 
 <template>
   <view v-if="product" class="page">
     <image v-if="product.imageUrl" class="hero" :src="product.imageUrl" mode="aspectFill" />
-    <view v-else class="hero placeholder">暂无图片</view>
+    <view v-else class="hero placeholder">AI MALL</view>
     <view class="panel">
-      <view class="heading">
-        <text class="name">{{ product.name }}</text>
-        <text :class="['status', product.status ? 'online' : 'offline']">
-          {{ product.status ? '已上架' : '已下架' }}
-        </text>
-      </view>
-
-      <text class="price">¥{{ Number(product.price).toFixed(2) }}</text>
-
-      <view class="row">
-        <text>SKU</text>
-        <text>{{ product.sku }}</text>
-      </view>
-
-      <view class="row">
-        <text>库存</text>
-        <text>{{ product.stock }}</text>
-      </view>
-
-      <view class="row">
-        <text>创建时间</text>
-        <text>{{ product.createdAt.replace('T', ' ') }}</text>
-      </view>
-
-      <view class="description">
-        <text class="label">商品描述</text>
-        <text>{{ product.description || '暂无描述' }}</text>
-      </view>
+      <text class="name">{{ product.name }}</text>
+      <text class="price"><text>¥</text>{{ Number(product.price).toFixed(2) }}</text>
+      <view class="benefits"><text>正品保障</text><text>安心配送</text><text>售后无忧</text></view>
+      <view class="description"><text class="label">商品详情</text><text class="copy">{{ product.description || '这件好物暂时没有更多介绍。' }}</text></view>
     </view>
     <view class="footer">
-      <button class="delete" @click="remove">删除</button>
-      <button class="edit" @click="goToEdit">编辑商品</button>
+      <view class="home" @click="goHome"><text>⌂</text><text>首页</text></view>
+      <button class="cart" :disabled="product.soldOut" @click="addToCart">加入购物车</button>
+      <button class="buy" :disabled="product.soldOut" @click="buyNow">{{ product.soldOut ? '已售罄' : '立即购买' }}</button>
     </view>
   </view>
 </template>
 
 <style scoped>
-.page {
-  padding-bottom: 130rpx;
-}
-
-.hero {
-  width: 100%;
-  height: 600rpx;
-  background: #e2e8f0;
-}
-
-.placeholder {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #94a3b8;
-}
-
-.panel {
-  margin: 24rpx;
-  padding: 30rpx;
-  background: #fff;
-  border-radius: 20rpx;
-}
-
-.heading,
-.row,
-.footer {
-  display: flex;
-  align-items: center;
-}
-
-.heading {
-  justify-content: space-between;
-}
-
-.name {
-  font-size: 38rpx;
-  font-weight: 650;
-}
-
-.status {
-  padding: 6rpx 16rpx;
-  border-radius: 999rpx;
-}
-
-.online {
-  color: #15803d;
-  background: #dcfce7;
-}
-
-.offline {
-  color: #64748b;
-  background: #e2e8f0;
-}
-
-.price {
-  display: block;
-  color: #dc2626;
-  font-size: 44rpx;
-  font-weight: 650;
-  margin: 24rpx 0;
-}
-
-.row {
-  justify-content: space-between;
-  padding: 22rpx 0;
-  border-top: 1rpx solid #e2e8f0;
-  color: #475569;
-}
-
-.description {
-  padding-top: 24rpx;
-  border-top: 1rpx solid #e2e8f0;
-}
-
-.description text {
-  display: block;
-  line-height: 1.7;
-}
-
-.label {
-  margin-bottom: 12rpx;
-  font-weight: 600;
-}
-
-.footer {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  gap: 20rpx;
-  padding: 18rpx 24rpx calc(18rpx + env(safe-area-inset-bottom));
-  background: #fff;
-}
-
-.footer button {
-  flex: 1;
-}
-
-.delete {
-  color: #dc2626;
-  background: #fee2e2;
-}
-
-.edit {
-  color: #fff;
-  background: #2563eb;
-}
+.page { min-height: 100vh; padding-bottom: 150rpx; background: #f6f7f4; }.hero { width: 100%; height: 720rpx; background: #e7ece9; }.placeholder { display: flex; align-items: center; justify-content: center; color: #95a49f; letter-spacing: 8rpx; }
+.panel { position: relative; margin: -22rpx 20rpx 24rpx; padding: 34rpx 30rpx; border-radius: 28rpx; background: #fff; }.name { display: block; color: #203b32; font-size: 38rpx; font-weight: 650; line-height: 1.5; }.price { display: block; margin-top: 18rpx; color: #b94f3c; font-size: 46rpx; font-weight: 700; }.price text { margin-right: 5rpx; font-size: 26rpx; }
+.benefits { margin-top: 28rpx; padding: 22rpx 0; display: flex; justify-content: space-around; border-top: 1rpx solid #edf0ee; border-bottom: 1rpx solid #edf0ee; color: #537168; font-size: 23rpx; }.benefits text::before { content: '✓'; margin-right: 7rpx; color: #c09a4d; }.description { margin-top: 30rpx; }.label,.copy { display: block; }.label { color: #203b32; font-size: 30rpx; font-weight: 650; }.copy { margin-top: 18rpx; color: #71827c; font-size: 27rpx; line-height: 1.8; }
+.footer { position: fixed; z-index: 5; left: 0; right: 0; bottom: 0; padding: 16rpx 22rpx calc(16rpx + env(safe-area-inset-bottom)); display: flex; align-items: center; gap: 14rpx; background: #fff; box-shadow: 0 -8rpx 28rpx rgba(34,65,55,.08); }.footer button { margin: 0; border-radius: 18rpx; font-size: 27rpx; }.home { width: 80rpx; display: flex; flex-direction: column; align-items: center; color: #657871; font-size: 21rpx; }.home text:first-child { font-size: 34rpx; }.cart { flex: 1; color: #245b4a; background: #e8f0ed; }.buy { flex: 1; color: #fff; background: #245b4a; }
 </style>

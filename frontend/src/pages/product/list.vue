@@ -1,43 +1,31 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { onPullDownRefresh, onReachBottom, onShow } from '@dcloudio/uni-app'
-import { productApi } from '@/api/product'
-import type { ProductListItem, ProductStatus } from '@/types/product'
+import { shopApi } from '@/api/shop'
+import type { ShopProductListItem } from '@/types/shop'
 
-const products = ref<ProductListItem[]>([])
+const products = ref<ShopProductListItem[]>([])
 const keyword = ref('')
-const status = ref<'' | ProductStatus>('')
 const page = ref(1)
 const totalPages = ref(1)
 const loading = ref(false)
 
-// 没有 id 时进入新增页，有 id 时进入编辑页。
-function goToForm(id?: string | number) {
-  uni.navigateTo({
-    url: id === undefined ? '/pages/product/form' : `/pages/product/form?id=${id}`,
-  })
-}
-
-// 打开商品详情页。
-function goToDetail(id: string | number) {
+// 消费者只能进入商品详情，不暴露新增、编辑和删除等后台能力。
+function goToDetail(id: string) {
   uni.navigateTo({ url: `/pages/product/detail?id=${id}` })
 }
 
-// 加载商品列表；reset=true 时重新从第一页查询。
+// 消费端固定只查询已上架商品；下拉刷新替换数据，触底时追加下一页。
 async function load(reset = false) {
-  // 防止重复请求，以及没有更多页时继续请求。
-  if (loading.value) return
-  if (!reset && page.value > totalPages.value) return
+  if (loading.value || (!reset && page.value > totalPages.value)) return
   loading.value = true
   try {
     if (reset) page.value = 1
-    const result = await productApi.list({
+    const result = await shopApi.list({
       page: page.value,
       pageSize: 20,
       keyword: keyword.value.trim() || undefined,
-      status: status.value === '' ? undefined : status.value,
     })
-    // 追加分页数据；刷新时直接替换旧列表。
     products.value = reset ? result.items : [...products.value, ...result.items]
     totalPages.value = result.totalPages
     page.value += 1
@@ -47,29 +35,6 @@ async function load(reset = false) {
   }
 }
 
-// picker 返回的是索引，需要转换成后端使用的商品状态值。
-function selectStatus(event: any) {
-  const values: Array<'' | ProductStatus> = ['', 1, 0]
-  status.value = values[Number(event.detail.value)]
-  load(true)
-}
-
-// 删除前弹窗确认，删除成功后重新加载第一页。
-function confirmDelete(item: ProductListItem) {
-  uni.showModal({
-    title: '删除商品',
-    content: `确定删除“${item.name}”吗？`,
-    confirmColor: '#dc2626',
-    success: async ({ confirm }) => {
-      if (!confirm) return
-      await productApi.remove(item.id)
-      uni.showToast({ title: '删除成功' })
-      await load(true)
-    },
-  })
-}
-
-// 页面显示、下拉刷新和触底加载分别对应三种列表刷新场景。
 onShow(() => load(true))
 onPullDownRefresh(() => load(true))
 onReachBottom(() => load())
@@ -77,197 +42,46 @@ onReachBottom(() => load())
 
 <template>
   <view class="page">
-    <view class="toolbar">
-      <view class="search-row">
-        <input
-          v-model="keyword"
-          class="search"
-          placeholder="搜索名称或 SKU"
-          confirm-type="search"
-          @confirm="load(true)" />
-        <button class="search-button" size="mini" @click="load(true)">搜索</button>
-      </view>
-      <view class="filter-row">
-        <picker :range="['全部状态', '已上架', '已下架']" @change="selectStatus">
-          <view class="filter">{{ status === '' ? '全部状态' : status === 1 ? '已上架' : '已下架' }} ▾</view>
-        </picker>
-        <button class="add-button" size="mini" @click="goToForm()">新增商品</button>
+    <view class="hero">
+      <text class="eyebrow">AI MALL</text>
+      <text class="headline">发现生活里的好物</text>
+      <text class="subtitle">精选品质商品，让每次选择都更简单</text>
+      <view class="search-wrap">
+        <text class="search-icon">⌕</text>
+        <input v-model="keyword" class="search" placeholder="搜索你喜欢的商品" confirm-type="search" @confirm="load(true)" />
+        <button class="search-button" @click="load(true)">搜索</button>
       </view>
     </view>
 
-    <view v-if="products.length" class="list">
+    <view class="section-heading">
+      <view><text class="section-title">今日精选</text><text class="section-note">为你挑选的热门好物</text></view>
+      <text class="refresh" @click="load(true)">换一批</text>
+    </view>
+
+    <view v-if="products.length" class="grid">
       <view v-for="item in products" :key="item.id" class="card" @click="goToDetail(item.id)">
         <image v-if="item.imageUrl" class="image" :src="item.imageUrl" mode="aspectFill" />
-        <view v-else class="image placeholder">暂无图片</view>
-        <view class="content">
-          <view class="title-row">
-            <text class="title">{{ item.name }}</text>
-            <text :class="['status', item.status === 1 ? 'online' : 'offline']">{{
-              item.status === 1 ? '上架' : '下架'
-            }}</text>
-          </view>
-          <text class="sku">SKU：{{ item.sku }}</text>
-          <view class="meta">
-            <text class="price">¥{{ Number(item.price).toFixed(2) }}</text>
-            <text>库存 {{ item.stock }}</text>
-          </view>
-          <view class="actions" @click.stop>
-            <button size="mini" @click="goToForm(item.id)">编辑</button>
-            <button class="delete" size="mini" @click="confirmDelete(item)">删除</button>
-          </view>
+        <view v-else class="image placeholder">AI MALL</view>
+        <text v-if="item.soldOut" class="sold-out">已售罄</text>
+        <view class="card-content">
+          <text class="title">{{ item.name }}</text>
+          <text class="delivery">品质精选 · 安心送达</text>
+          <view class="meta"><text class="price"><text class="currency">¥</text>{{ Number(item.price).toFixed(2) }}</text><view class="cart-button">＋</view></view>
         </view>
       </view>
     </view>
-    <view v-else-if="!loading" class="empty">暂无商品，点击“新增商品”创建第一件商品</view>
-    <view v-if="loading" class="loading">加载中...</view>
-    <view v-else-if="products.length && page > totalPages" class="loading">没有更多了</view>
+    <view v-else-if="!loading" class="empty">没有找到相关商品</view>
+    <view v-if="loading" class="loading">正在加载好物...</view>
+    <view v-else-if="products.length && page > totalPages" class="loading">已经到底啦</view>
   </view>
 </template>
 
 <style scoped>
-.page {
-  padding: 24rpx;
-}
-
-.toolbar,
-.card {
-  background: #fff;
-  border-radius: 20rpx;
-  box-shadow: 0 6rpx 24rpx rgba(15, 23, 42, 0.06);
-}
-
-.toolbar {
-  padding: 24rpx;
-  margin-bottom: 24rpx;
-}
-
-.search-row,
-.filter-row,
-.title-row,
-.meta,
-.actions {
-  display: flex;
-  align-items: center;
-}
-
-.search {
-  flex: 1;
-  height: 72rpx;
-  padding: 0 22rpx;
-  border-radius: 14rpx;
-  background: #f1f5f9;
-}
-
-.search-button,
-.add-button {
-  margin: 0 0 0 16rpx;
-  color: #fff;
-  background: #2563eb;
-}
-
-.filter-row {
-  justify-content: space-between;
-  margin-top: 20rpx;
-}
-
-.filter {
-  color: #475569;
-  padding: 12rpx 0;
-}
-
-.card {
-  display: flex;
-  padding: 20rpx;
-  margin-bottom: 20rpx;
-}
-
-.image {
-  width: 180rpx;
-  height: 180rpx;
-  flex: none;
-  border-radius: 16rpx;
-  background: #e2e8f0;
-}
-
-.placeholder {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #94a3b8;
-  font-size: 24rpx;
-}
-
-.content {
-  flex: 1;
-  min-width: 0;
-  margin-left: 22rpx;
-}
-
-.title-row {
-  justify-content: space-between;
-  gap: 12rpx;
-}
-
-.title {
-  font-weight: 600;
-  font-size: 32rpx;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.status {
-  flex: none;
-  padding: 4rpx 12rpx;
-  border-radius: 999rpx;
-  font-size: 22rpx;
-}
-
-.online {
-  color: #15803d;
-  background: #dcfce7;
-}
-
-.offline {
-  color: #64748b;
-  background: #e2e8f0;
-}
-
-.sku {
-  display: block;
-  margin: 12rpx 0;
-  color: #64748b;
-  font-size: 24rpx;
-}
-
-.meta {
-  justify-content: space-between;
-  color: #64748b;
-}
-
-.price {
-  color: #dc2626;
-  font-size: 32rpx;
-  font-weight: 600;
-}
-
-.actions {
-  justify-content: flex-end;
-  margin-top: 10rpx;
-}
-
-.actions button {
-  margin: 0 0 0 12rpx;
-}
-
-.delete {
-  color: #dc2626;
-}
-
-.empty,
-.loading {
-  padding: 100rpx 30rpx;
-  text-align: center;
-  color: #94a3b8;
-}
+.page { min-height: 100vh; padding-bottom: 40rpx; background: #f6f7f4; }
+.hero { padding: 72rpx 32rpx 38rpx; color: #fff; background: linear-gradient(145deg, #163f34, #2f6e5a); }
+.eyebrow,.headline,.subtitle { display: block; }.eyebrow { color: #e6c77f; font-size: 22rpx; font-weight: 700; letter-spacing: 8rpx; }.headline { margin-top: 20rpx; font-size: 48rpx; font-weight: 700; }.subtitle { margin-top: 12rpx; color: rgba(255,255,255,.68); font-size: 26rpx; }
+.search-wrap { height: 88rpx; margin-top: 36rpx; padding: 0 12rpx 0 24rpx; display: flex; align-items: center; border-radius: 22rpx; background: #fff; }.search-icon { color: #80948d; font-size: 38rpx; }.search { flex: 1; height: 88rpx; margin-left: 14rpx; color: #17362d; font-size: 28rpx; }.search-button { width: auto; margin: 0; padding: 0 24rpx; color: #fff; border-radius: 16rpx; background: #d1a957; font-size: 25rpx; line-height: 64rpx; }
+.section-heading { padding: 34rpx 28rpx 22rpx; display: flex; justify-content: space-between; align-items: flex-end; }.section-title,.section-note { display: block; }.section-title { color: #17362d; font-size: 36rpx; font-weight: 700; }.section-note { margin-top: 7rpx; color: #8b9994; font-size: 23rpx; }.refresh { color: #2c6956; font-size: 25rpx; }
+.grid { padding: 0 24rpx; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20rpx; }.card { position: relative; overflow: hidden; border-radius: 22rpx; background: #fff; box-shadow: 0 8rpx 24rpx rgba(31,65,54,.06); }.image { width: 100%; height: 330rpx; background: #e8edea; }.placeholder { display: flex; align-items: center; justify-content: center; color: #9aa9a3; font-size: 22rpx; letter-spacing: 4rpx; }.sold-out { position: absolute; top: 16rpx; right: 16rpx; padding: 7rpx 14rpx; border-radius: 999rpx; color: #fff; background: rgba(45,55,51,.75); font-size: 21rpx; }.card-content { padding: 20rpx; }.title { display: block; overflow: hidden; color: #203b32; font-size: 28rpx; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }.delivery { display: block; margin-top: 9rpx; color: #9aa6a2; font-size: 21rpx; }.meta { margin-top: 18rpx; display: flex; align-items: center; justify-content: space-between; }.price { color: #b94f3c; font-size: 32rpx; font-weight: 700; }.currency { margin-right: 3rpx; font-size: 22rpx; }.cart-button { width: 46rpx; height: 46rpx; display: flex; align-items: center; justify-content: center; border-radius: 50%; color: #fff; background: #245b4a; font-size: 31rpx; }
+.empty,.loading { padding: 90rpx 30rpx; text-align: center; color: #96a49f; font-size: 25rpx; }
 </style>

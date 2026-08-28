@@ -3,6 +3,7 @@ package com.aimall.common.exception;
 import com.aimall.auth.exception.AccountDisabledException;
 import com.aimall.auth.exception.AccountLockedException;
 import com.aimall.auth.exception.InvalidCredentialsException;
+import com.aimall.auth.exception.UsernameAlreadyExistsException;
 import com.aimall.common.error.ErrorResponse;
 import com.aimall.common.error.FieldErrorDetail;
 import org.springframework.dao.DuplicateKeyException;
@@ -16,6 +17,12 @@ import java.util.List;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    @ExceptionHandler(UsernameAlreadyExistsException.class)
+    ResponseEntity<ErrorResponse> handleUsernameConflict(UsernameAlreadyExistsException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ErrorResponse.of("USERNAME_ALREADY_EXISTS", e.getMessage()));
+    }
+
     @ExceptionHandler(InvalidCredentialsException.class)
     ResponseEntity<ErrorResponse> handleInvalidCredentials(InvalidCredentialsException e) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)

@@ -12,8 +12,57 @@ servers:
   - url: http://localhost:8080
 tags:
   - name: Auth
+  - name: Shop
   - name: Products
 paths:
+  /api/v1/shop/products:
+    get:
+      tags: [Shop]
+      summary: 消费者分页浏览已上架商品
+      operationId: listShopProducts
+      security: []
+      parameters:
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: pageSize, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { name: keyword, in: query, description: 按商品名称搜索, schema: { type: string, maxLength: 200 } }
+      responses:
+        '200':
+          description: 查询成功
+          content: { application/json: { schema: { $ref: '#/components/schemas/ShopProductPage' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+  /api/v1/shop/products/{id}:
+    get:
+      tags: [Shop]
+      summary: 获取已上架商品的消费者详情
+      operationId: getShopProduct
+      security: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, pattern: '^[1-9][0-9]*$' }
+      responses:
+        '200':
+          description: 查询成功
+          content: { application/json: { schema: { $ref: '#/components/schemas/ShopProductDetail' } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/auth/register:
+    post:
+      tags: [Auth]
+      summary: 注册商城账号
+      operationId: register
+      security: []
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/RegisterRequest' } } }
+      responses:
+        '201':
+          description: 注册成功
+          content: { application/json: { schema: { $ref: '#/components/schemas/CurrentUser' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409':
+          description: 用户名已存在
+          content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
   /api/v1/auth/login:
     post:
       tags: [Auth]
@@ -147,6 +196,40 @@ components:
       scheme: bearer
       bearerFormat: JWT
   schemas:
+    ShopProductListItem:
+      type: object
+      additionalProperties: false
+      required: [id, name, price, soldOut]
+      properties:
+        id: { type: string, example: '1' }
+        name: { type: string, example: 示例商品 }
+        price: { type: number, multipleOf: 0.01, example: 99.00 }
+        imageUrl: { type: string, format: uri, nullable: true }
+        soldOut: { type: boolean, description: 是否售罄 }
+    ShopProductDetail:
+      allOf:
+        - { $ref: '#/components/schemas/ShopProductListItem' }
+        - type: object
+          properties:
+            description: { type: string, nullable: true }
+    ShopProductPage:
+      type: object
+      additionalProperties: false
+      required: [items, page, pageSize, total, totalPages]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/ShopProductListItem' } }
+        page: { type: integer }
+        pageSize: { type: integer }
+        total: { type: integer, format: int64 }
+        totalPages: { type: integer, format: int64 }
+    RegisterRequest:
+      type: object
+      additionalProperties: false
+      required: [username, password, displayName]
+      properties:
+        username: { type: string, minLength: 3, maxLength: 64, pattern: '^[A-Za-z0-9_]+$', example: mall_user }
+        password: { type: string, minLength: 8, maxLength: 72, format: password, example: User123! }
+        displayName: { type: string, minLength: 1, maxLength: 100, example: 商城用户 }
     LoginRequest:
       type: object
       additionalProperties: false

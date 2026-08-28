@@ -3,6 +3,7 @@ package com.aimall.auth.controller;
 import com.aimall.auth.dto.LoginRequest;
 import com.aimall.auth.exception.AccountLockedException;
 import com.aimall.auth.exception.InvalidCredentialsException;
+import com.aimall.auth.exception.UsernameAlreadyExistsException;
 import com.aimall.auth.service.AuthService;
 import com.aimall.auth.vo.CurrentUserResponse;
 import com.aimall.auth.vo.TokenResponse;
@@ -23,6 +24,34 @@ class AuthControllerTest {
     private final AuthService service = mock(AuthService.class);
     private final MockMvc mvc = MockMvcBuilders.standaloneSetup(new AuthController(service))
             .setControllerAdvice(new GlobalExceptionHandler()).build();
+
+    @Test
+    void registerCreatesOperator() throws Exception {
+        var user = new CurrentUserResponse("2", "new_user", "新用户", null, List.of("OPERATOR"));
+        when(service.register(any())).thenReturn(user);
+        mvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"new_user\",\"password\":\"User123!\",\"displayName\":\"新用户\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.username").value("new_user"))
+                .andExpect(jsonPath("$.roles[0]").value("OPERATOR"));
+    }
+
+    @Test
+    void registerRejectsInvalidUsername() throws Exception {
+        mvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"bad name\",\"password\":\"User123!\",\"displayName\":\"用户\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void duplicateUsernameIsConflict() throws Exception {
+        when(service.register(any())).thenThrow(new UsernameAlreadyExistsException());
+        mvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"existing\",\"password\":\"User123!\",\"displayName\":\"用户\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("USERNAME_ALREADY_EXISTS"));
+    }
 
     @Test
     void loginReturnsContractResponse() throws Exception {

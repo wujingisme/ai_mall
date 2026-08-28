@@ -24,6 +24,11 @@ public class MallUser {
     public Boolean getEnabled() { return enabled; }
     public Integer getFailedLoginAttempts() { return failedLoginAttempts; }
     public LocalDateTime getLockedUntil() { return lockedUntil; }
+    public void setUsername(String username) { this.username = username; }
+    public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
+    public void setDisplayName(String displayName) { this.displayName = displayName; }
+    public void setRoles(String roles) { this.roles = roles; }
+    public void setEnabled(Boolean enabled) { this.enabled = enabled; }
     public void setFailedLoginAttempts(Integer value) { this.failedLoginAttempts = value; }
     public void setLockedUntil(LocalDateTime value) { this.lockedUntil = value; }
 }

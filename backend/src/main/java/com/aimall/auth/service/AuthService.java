@@ -1,6 +1,7 @@
 package com.aimall.auth.service;
 
 import com.aimall.auth.dto.LoginRequest;
+import com.aimall.auth.dto.RegisterRequest;
 import com.aimall.auth.entity.AuthSession;
 import com.aimall.auth.entity.MallUser;
 import com.aimall.auth.exception.*;
@@ -12,6 +13,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -50,6 +52,31 @@ public class AuthService {
         this.refreshTokenSeconds = refreshTokenSeconds;
         this.maxFailures = maxFailures;
         this.lockSeconds = lockSeconds;
+    }
+
+    @Transactional
+    public CurrentUserResponse register(RegisterRequest request) {
+        // 自助注册只授予最低业务角色，禁止客户端借注册接口提升权限。
+        boolean exists = userMapper.selectCount(new LambdaQueryWrapper<MallUser>()
+                .eq(MallUser::getUsername, request.username())) > 0;
+        if (exists) throw new UsernameAlreadyExistsException();
+
+        MallUser user = new MallUser();
+        user.setUsername(request.username());
+        user.setPasswordHash(passwordEncoder.encode(request.password()));
+        user.setDisplayName(request.displayName());
+        user.setRoles("OPERATOR");
+        user.setEnabled(true);
+        user.setFailedLoginAttempts(0);
+        try {
+            userMapper.insert(user);
+        } catch (DuplicateKeyException e) {
+            // 并发注册仍由数据库唯一索引兜底，并返回稳定的业务错误码。
+            throw new UsernameAlreadyExistsException();
+        }
+        log.info("注册成功: userId={}", user.getId());
+        return new CurrentUserResponse(user.getId().toString(), user.getUsername(),
+                user.getDisplayName(), null, List.of("OPERATOR"));
     }
 
     // 登录失败仍需提交失败次数与锁定时间，因此认证类异常不能触发事务回滚。
