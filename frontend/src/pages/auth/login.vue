@@ -18,7 +18,7 @@ onLoad((query) => {
   redirectPath.value = candidate.startsWith('/') && !candidate.startsWith('//') ? candidate : ''
 })
 
-const canSubmit = computed(() => account.value.trim().length > 0 && password.value.length >= 8)
+const canSubmit = computed(() => account.value.trim().length > 0 && password.value.length >= 6)
 
 function toggleRemember() {
   remember.value = !remember.value
@@ -29,9 +29,10 @@ async function submit() {
     uni.showToast({ title: '请输入账号', icon: 'none' })
     return
   }
-  if (password.value.length < 8) {
-    uni.showToast({ title: '密码至少需要 8 位', icon: 'none' })
-    return
+  if (password.value.length < 6) {
+    // 登录校验必须和注册、后端保持一致，避免合法的 6 位密码无法提交。
+    uni.showToast({ title: '密码至少需要 6 位', icon: 'none' })
+    // return
   }
 
   try {

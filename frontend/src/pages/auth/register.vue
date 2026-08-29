@@ -15,7 +15,7 @@ const canSubmit = computed(
   () =>
     /^[A-Za-z0-9_]{3,64}$/.test(username.value) &&
     displayName.value.trim().length > 0 &&
-    password.value.length >= 8 &&
+    password.value.length >= 6 &&
     password.value === confirmPassword.value &&
     agreed.value,
 )
@@ -29,8 +29,9 @@ async function submit() {
     uni.showToast({ title: '请输入昵称', icon: 'none' })
     return
   }
-  if (password.value.length < 8) {
-    uni.showToast({ title: '密码至少需要 8 位', icon: 'none' })
+  if (password.value.length < 6) {
+    // 密码只限制最小长度，不要求必须包含数字、字母或特殊字符。
+    uni.showToast({ title: '密码至少需要 6 位', icon: 'none' })
     return
   }
   if (password.value !== confirmPassword.value) {
