@@ -14,8 +14,67 @@ tags:
   - name: Auth
   - name: AdminAccounts
   - name: Shop
+  - name: Cart
   - name: Products
 paths:
+  /api/v1/cart:
+    get:
+      tags: [Cart]
+      summary: 查询当前用户购物车
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: 查询成功
+          content: { application/json: { schema: { $ref: '#/components/schemas/Cart' } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/v1/cart/items:
+    post:
+      tags: [Cart]
+      summary: 加入购物车；商品已存在时累加数量
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CartItemAddRequest' } } }
+      responses:
+        '200':
+          description: 添加成功
+          content: { application/json: { schema: { $ref: '#/components/schemas/Cart' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+    delete:
+      tags: [Cart]
+      summary: 清空当前用户购物车
+      security: [{ bearerAuth: [] }]
+      responses:
+        '204': { description: 清空成功 }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/v1/cart/items/{productId}:
+    parameters:
+      - { name: productId, in: path, required: true, schema: { type: string, pattern: '^[1-9][0-9]*$' } }
+    put:
+      tags: [Cart]
+      summary: 修改购物车商品数量
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CartItemQuantityRequest' } } }
+      responses:
+        '200':
+          description: 修改成功
+          content: { application/json: { schema: { $ref: '#/components/schemas/Cart' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+    delete:
+      tags: [Cart]
+      summary: 从购物车删除商品
+      security: [{ bearerAuth: [] }]
+      responses:
+        '204': { description: 删除成功；商品不在购物车时同样成功 }
+        '401': { $ref: '#/components/responses/Unauthorized' }
   /api/v1/shop/products:
     get:
       tags: [Shop]
@@ -217,6 +276,37 @@ components:
       scheme: bearer
       bearerFormat: JWT
   schemas:
+    CartItemAddRequest:
+      type: object
+      additionalProperties: false
+      required: [productId, quantity]
+      properties:
+        productId: { type: string, pattern: '^[1-9][0-9]*$' }
+        quantity: { type: integer, minimum: 1, maximum: 99, example: 1 }
+    CartItemQuantityRequest:
+      type: object
+      additionalProperties: false
+      required: [quantity]
+      properties:
+        quantity: { type: integer, minimum: 1, maximum: 99 }
+    CartItem:
+      type: object
+      required: [productId, name, price, quantity, stock, available]
+      properties:
+        productId: { type: string }
+        name: { type: string }
+        price: { type: number }
+        imageUrl: { type: string, nullable: true }
+        quantity: { type: integer }
+        stock: { type: integer }
+        available: { type: boolean, description: 商品已上架且库存充足 }
+    Cart:
+      type: object
+      required: [items, totalQuantity, totalAmount]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/CartItem' } }
+        totalQuantity: { type: integer }
+        totalAmount: { type: number }
     ShopProductListItem:
       type: object
       additionalProperties: false

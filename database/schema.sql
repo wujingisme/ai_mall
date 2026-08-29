@@ -49,3 +49,18 @@ CREATE TABLE IF NOT EXISTS product (
   KEY idx_product_status_created (status, created_at),
   CONSTRAINT chk_product_status CHECK (status IN (0, 1))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='商品';
+
+CREATE TABLE IF NOT EXISTS cart_item (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id BIGINT UNSIGNED NOT NULL COMMENT '用户 ID',
+  product_id BIGINT UNSIGNED NOT NULL COMMENT '商品 ID',
+  quantity INT UNSIGNED NOT NULL COMMENT '购买数量',
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_cart_item_user_product (user_id, product_id),
+  KEY idx_cart_item_product (product_id),
+  CONSTRAINT fk_cart_item_user FOREIGN KEY (user_id) REFERENCES mall_user(id) ON DELETE CASCADE,
+  CONSTRAINT fk_cart_item_product FOREIGN KEY (product_id) REFERENCES product(id) ON DELETE CASCADE,
+  CONSTRAINT chk_cart_item_quantity CHECK (quantity BETWEEN 1 AND 99)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户购物车商品';

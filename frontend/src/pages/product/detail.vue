@@ -2,7 +2,9 @@
 import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { shopApi } from '@/api/shop'
+import { cartApi } from '@/api/cart'
 import type { ShopProductDetail } from '@/types/shop'
+import { getAccessToken } from '@/utils/auth-storage'
 
 const id = ref('')
 const product = ref<ShopProductDetail>()
@@ -11,28 +13,33 @@ async function load() {
   if (id.value) product.value = await shopApi.get(id.value)
 }
 
-// 购物车暂存本地；后续接入服务端购物车时只需替换这一层存储逻辑。
-function addToCart() {
-  if (!product.value) return
+async function addToCart(): Promise<boolean> {
+  if (!product.value) return false
   if (product.value.soldOut) {
     uni.showToast({ title: '商品已售罄', icon: 'none' })
-    return
+    return false
   }
-  const cart = uni.getStorageSync('mall_cart') || []
-  const existed = cart.find((item: { id: string }) => item.id === product.value?.id)
-  if (existed) existed.quantity += 1
-  else cart.push({ ...product.value, quantity: 1 })
-  uni.setStorageSync('mall_cart', cart)
-  uni.showToast({ title: '已加入购物车', icon: 'success' })
+  if (!getAccessToken()) {
+    // 游客可以浏览商品，但购物车属于用户数据；登录后返回当前商品详情页。
+    const current = `/pages/product/detail?id=${id.value}`
+    uni.navigateTo({ url: `/pages/auth/login?redirect=${encodeURIComponent(current)}` })
+    return false
+  }
+  try {
+    await cartApi.add({ productId: product.value.id, quantity: 1 })
+    uni.showToast({ title: '已加入购物车', icon: 'success' })
+    return true
+  } catch {
+    return false
+  }
 }
 
-function buyNow() {
+async function buyNow() {
   if (product.value?.soldOut) {
     uni.showToast({ title: '商品已售罄', icon: 'none' })
     return
   }
-  addToCart()
-  uni.switchTab({ url: '/pages/cart/index' })
+  if (await addToCart()) uni.switchTab({ url: '/pages/cart/index' })
 }
 
 function goHome() {

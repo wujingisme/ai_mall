@@ -5,6 +5,8 @@ import com.aimall.auth.exception.AccountLockedException;
 import com.aimall.auth.exception.InvalidCredentialsException;
 import com.aimall.auth.exception.UsernameAlreadyExistsException;
 import com.aimall.auth.exception.RefreshTokenInvalidException;
+import com.aimall.cart.exception.CartItemNotFoundException;
+import com.aimall.cart.exception.CartProductUnavailableException;
 import com.aimall.common.error.ErrorResponse;
 import com.aimall.common.error.FieldErrorDetail;
 import org.springframework.dao.DuplicateKeyException;
@@ -52,6 +54,16 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ProductNotFoundException.class)
     ResponseEntity<ErrorResponse> handleNotFound(ProductNotFoundException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ErrorResponse.of("PRODUCT_NOT_FOUND", e.getMessage()));
+    }
+
+    @ExceptionHandler(CartItemNotFoundException.class)
+    ResponseEntity<ErrorResponse> handleCartItemNotFound(CartItemNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ErrorResponse.of("CART_ITEM_NOT_FOUND", e.getMessage()));
+    }
+
+    @ExceptionHandler(CartProductUnavailableException.class)
+    ResponseEntity<ErrorResponse> handleCartProductUnavailable(CartProductUnavailableException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ErrorResponse.of("CART_PRODUCT_UNAVAILABLE", e.getMessage()));
     }
 
     @ExceptionHandler({SkuConflictException.class, DuplicateKeyException.class})
