@@ -13,6 +13,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+import static org.springframework.security.config.Customizer.withDefaults;
+
 @Configuration
 public class SecurityConfig {
     @Bean
@@ -22,6 +24,8 @@ public class SecurityConfig {
     SecurityFilterChain securityFilterChain(HttpSecurity http, ObjectMapper objectMapper,
                                             JwtAuthenticationFilter jwtFilter) throws Exception {
         return http.csrf(csrf -> csrf.disable())
+                // 让浏览器的 OPTIONS 预检使用 WebConfig 中允许的本地开发来源，避免在认证过滤链前被拦截。
+                .cors(withDefaults())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/v1/auth/register", "/api/v1/auth/login",
