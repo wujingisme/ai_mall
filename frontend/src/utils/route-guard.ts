@@ -1,6 +1,8 @@
-import { getAccessToken } from '@/utils/auth-storage'
+import { authApi } from '@/api/auth'
+import { clearAuthSession, getAccessToken, updateCurrentUser } from '@/utils/auth-storage'
 
-const protectedRoutes = new Set(['/pages/cart/index', '/pages/profile/index', '/pages/product/form'])
+// 除登录和注册外，消费者端页面都要求有效登录状态。
+const protectedRoutes = new Set(['/pages/product/list', '/pages/product/detail', '/pages/cart/index', '/pages/profile/index', '/pages/product/form'])
 
 function normalizePath(url: string) {
   const path = url.split('?')[0]
@@ -21,10 +23,16 @@ export function installRouteGuard() {
   })
 }
 
-export function enforceCurrentRoute() {
+export async function enforceCurrentRoute() {
   const pages = getCurrentPages()
   const route = pages[pages.length - 1]?.route
-  if (route && protectedRoutes.has(normalizePath(route)) && !getAccessToken()) {
+  if (!route || !protectedRoutes.has(normalizePath(route))) return
+  if (!getAccessToken()) return void uni.reLaunch({ url: `/pages/auth/login?redirect=${encodeURIComponent(`/${route}`)}` })
+  try {
+    // 本地有 token 仍必须向后端确认，过期、伪造或已禁用账号都不能继续停留在受保护页。
+    updateCurrentUser(await authApi.me())
+  } catch {
+    clearAuthSession()
     uni.reLaunch({ url: `/pages/auth/login?redirect=${encodeURIComponent(`/${route}`)}` })
   }
 }

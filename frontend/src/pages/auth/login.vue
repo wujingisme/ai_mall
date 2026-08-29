@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+import { onLoad, onShow } from '@dcloudio/uni-app'
 import { authApi } from '@/api/auth'
-import { saveAuthSession } from '@/utils/auth-storage'
+import { getAccessToken, saveAuthSession, updateCurrentUser } from '@/utils/auth-storage'
 
 const account = ref('')
 const password = ref('')
@@ -16,6 +16,17 @@ onLoad((query) => {
   try { candidate = typeof query?.redirect === 'string' ? decodeURIComponent(query.redirect) : '' } catch { candidate = '' }
   // 只接受应用内绝对路径，避免登录后被构造为外部开放重定向。
   redirectPath.value = candidate.startsWith('/') && !candidate.startsWith('//') ? candidate : ''
+})
+
+onShow(async () => {
+  if (!getAccessToken()) return
+  try {
+    // 已保存的会话必须通过后端校验后才能跳过登录页。
+    updateCurrentUser(await authApi.me())
+    uni.switchTab({ url: '/pages/product/list' })
+  } catch {
+    // 无效会话由统一请求层清理，用户继续停留在登录页。
+  }
 })
 
 const canSubmit = computed(() => account.value.trim().length > 0 && password.value.length >= 6)
@@ -32,7 +43,7 @@ async function submit() {
   if (password.value.length < 6) {
     // 登录校验必须和注册、后端保持一致，避免合法的 6 位密码无法提交。
     uni.showToast({ title: '密码至少需要 6 位', icon: 'none' })
-    // return
+    return
   }
 
   try {

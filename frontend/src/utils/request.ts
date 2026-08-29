@@ -69,6 +69,9 @@ function executeRequest<T>(options: UniApp.RequestOptions, retried: boolean): Pr
           return
         }
 
+        // 没有刷新令牌或刷新后的请求仍返回 401 时，立即清理伪登录状态并返回登录页。
+        if (response.statusCode === 401 && !isPublicAuth) redirectToLogin()
+
         const error = response.data as ApiError
         uni.showToast({ title: error?.message || '请求失败', icon: 'none' })
         reject(error)
