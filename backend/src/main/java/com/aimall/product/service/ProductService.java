@@ -6,6 +6,7 @@ import com.aimall.product.entity.Product;
 import com.aimall.product.mapper.ProductMapper;
 import com.aimall.product.vo.*;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,7 +46,17 @@ public class ProductService {
         Product product = requireProduct(id);
         ensureSkuAvailable(request.sku().trim(), id);
         apply(product, request);
-        productMapper.updateById(product);
+        // PUT 接收完整商品表单：所有可编辑字段都必须覆盖，null 表示主动清空可选字段。
+        // 显式 set 避免 updateById 默认忽略 null，从而保证图片和描述可以被清除。
+        productMapper.update(null, Wrappers.lambdaUpdate(Product.class)
+                .eq(Product::getId, id)
+                .set(Product::getSku, product.getSku())
+                .set(Product::getName, product.getName())
+                .set(Product::getPrice, product.getPrice())
+                .set(Product::getStock, product.getStock())
+                .set(Product::getStatus, product.getStatus())
+                .set(Product::getImageUrl, product.getImageUrl())
+                .set(Product::getDescription, product.getDescription()));
         return toDetail(requireProduct(id));
     }
 
