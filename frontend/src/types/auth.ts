@@ -15,6 +15,10 @@ export interface RefreshTokenRequest {
   refreshToken: string
 }
 
+export interface WechatLoginRequest {
+  code: string
+}
+
 export interface CurrentUser {
   id: string
   username: string

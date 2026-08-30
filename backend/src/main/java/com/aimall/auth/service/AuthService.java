@@ -35,6 +35,7 @@ public class AuthService {
     private final AuthSessionMapper sessionMapper;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final WechatMiniProgramClient wechatClient;
     private final SecureRandom secureRandom = new SecureRandom();
     private final long accessTokenSeconds;
     private final long refreshTokenSeconds;
@@ -42,7 +43,7 @@ public class AuthService {
     private final long lockSeconds;
 
     public AuthService(MallUserMapper userMapper, AuthSessionMapper sessionMapper,
-                       PasswordEncoder passwordEncoder, JwtService jwtService,
+                       PasswordEncoder passwordEncoder, JwtService jwtService, WechatMiniProgramClient wechatClient,
                        @Value("${auth.access-token-seconds}") long accessTokenSeconds,
                        @Value("${auth.refresh-token-seconds}") long refreshTokenSeconds,
                        @Value("${auth.max-login-failures}") int maxFailures,
@@ -51,10 +52,41 @@ public class AuthService {
         this.sessionMapper = sessionMapper;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
+        this.wechatClient = wechatClient;
         this.accessTokenSeconds = accessTokenSeconds;
         this.refreshTokenSeconds = refreshTokenSeconds;
         this.maxFailures = maxFailures;
         this.lockSeconds = lockSeconds;
+    }
+
+    @Transactional
+    public TokenResponse loginWithWechat(String code) {
+        WechatMiniProgramClient.WechatIdentity identity = wechatClient.exchangeCode(code);
+        MallUser user = userMapper.selectOne(new LambdaQueryWrapper<MallUser>()
+                .eq(MallUser::getWechatOpenId, identity.openId()));
+        if (user == null) {
+            user = new MallUser();
+            user.setUsername("wx_" + identity.openId());
+            // 微信用户不使用密码登录，但保留不可猜测的 BCrypt 值以兼容统一用户表约束。
+            user.setPasswordHash(passwordEncoder.encode(randomToken()));
+            user.setDisplayName("微信用户");
+            user.setWechatOpenId(identity.openId());
+            user.setWechatUnionId(identity.unionId());
+            user.setRoles("CUSTOMER");
+            user.setEnabled(true);
+            user.setFailedLoginAttempts(0);
+            try {
+                userMapper.insert(user);
+            } catch (DuplicateKeyException e) {
+                user = userMapper.selectOne(new LambdaQueryWrapper<MallUser>()
+                        .eq(MallUser::getWechatOpenId, identity.openId()));
+                if (user == null) throw e;
+            }
+        }
+        if (!Boolean.TRUE.equals(user.getEnabled())) throw new AccountDisabledException();
+        TokenResponse response = createSession(user, LocalDateTime.now());
+        log.info("微信登录成功: userId={}", user.getId());
+        return response;
     }
 
     @Transactional

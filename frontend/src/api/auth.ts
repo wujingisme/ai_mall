@@ -1,5 +1,5 @@
 import { request } from '@/utils/request'
-import type { CurrentUser, LoginRequest, RefreshTokenRequest, RegisterRequest, TokenResponse } from '@/types/auth'
+import type { CurrentUser, LoginRequest, RefreshTokenRequest, RegisterRequest, TokenResponse, WechatLoginRequest } from '@/types/auth'
 
 const resource = '/api/v1/auth'
 
@@ -11,6 +11,9 @@ export const authApi = {
   // 使用用户名和密码登录；成功后返回用户信息及一组访问、刷新令牌。
   login: (data: LoginRequest) =>
     request<TokenResponse>({ url: `${resource}/login`, method: 'POST', data }),
+
+  wechatLogin: (data: WechatLoginRequest) =>
+    request<TokenResponse>({ url: `${resource}/wechat/login`, method: 'POST', data }),
 
   // 刷新成功后会同时轮换两个令牌，调用方必须完整替换本地旧令牌。
   refresh: (data: RefreshTokenRequest) =>

@@ -5,6 +5,7 @@ import com.aimall.auth.exception.AccountLockedException;
 import com.aimall.auth.exception.InvalidCredentialsException;
 import com.aimall.auth.exception.UsernameAlreadyExistsException;
 import com.aimall.auth.exception.RefreshTokenInvalidException;
+import com.aimall.auth.exception.WechatLoginException;
 import com.aimall.cart.exception.CartItemNotFoundException;
 import com.aimall.cart.exception.CartProductUnavailableException;
 import com.aimall.common.error.ErrorResponse;
@@ -20,6 +21,11 @@ import java.util.List;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    @ExceptionHandler(WechatLoginException.class)
+    ResponseEntity<ErrorResponse> handleWechatLogin(WechatLoginException e) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ErrorResponse.of("WECHAT_LOGIN_FAILED", e.getMessage()));
+    }
     @ExceptionHandler(RefreshTokenInvalidException.class)
     ResponseEntity<ErrorResponse> handleRefreshTokenInvalid(RefreshTokenInvalidException e) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)

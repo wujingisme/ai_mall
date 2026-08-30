@@ -7,6 +7,8 @@ CREATE TABLE IF NOT EXISTS mall_user (
   password_hash VARCHAR(100) NOT NULL COMMENT 'BCrypt 密码摘要',
   display_name VARCHAR(100) NOT NULL COMMENT '显示名称',
   avatar_url VARCHAR(1000) NULL,
+  wechat_open_id VARCHAR(64) NULL COMMENT '微信小程序 OpenID，同一小程序内唯一',
+  wechat_union_id VARCHAR(64) NULL COMMENT '微信开放平台 UnionID，可用于跨应用合并身份',
   roles VARCHAR(200) NOT NULL DEFAULT 'CUSTOMER' COMMENT '逗号分隔角色：CUSTOMER、OPERATOR、ADMIN、SUPER_ADMIN',
   enabled TINYINT(1) NOT NULL DEFAULT 1,
   failed_login_attempts INT UNSIGNED NOT NULL DEFAULT 0,
@@ -14,7 +16,9 @@ CREATE TABLE IF NOT EXISTS mall_user (
   created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   PRIMARY KEY (id),
-  UNIQUE KEY uk_mall_user_username (username)
+  UNIQUE KEY uk_mall_user_username (username),
+  UNIQUE KEY uk_mall_user_wechat_open_id (wechat_open_id),
+  KEY idx_mall_user_wechat_union_id (wechat_union_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='商城用户';
 
 -- 首次部署时需要由运维手动把一个可信账号提升为超级管理员，之后才能在后台创建其他管理账号。

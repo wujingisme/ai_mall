@@ -66,6 +66,22 @@ async function submit() {
   }
 }
 
+async function loginWithWechat() {
+  try {
+    submitting.value = true
+    const loginResult = await uni.login({ provider: 'weixin' })
+    if (!loginResult.code) throw new Error('未获取到微信登录凭证')
+    const session = await authApi.wechatLogin({ code: loginResult.code })
+    saveAuthSession(session, true)
+    uni.showToast({ title: '微信登录成功', icon: 'success' })
+    uni.switchTab({ url: '/pages/product/list' })
+  } catch (error) {
+    if (error instanceof Error && error.message) uni.showToast({ title: error.message, icon: 'none' })
+  } finally {
+    submitting.value = false
+  }
+}
+
 function forgotPassword() {
   uni.showToast({ title: '请联系管理员重置密码', icon: 'none' })
 }
@@ -159,6 +175,12 @@ function goToRegister() {
           @click="submit">
           {{ submitting ? '正在登录' : '登录' }}
         </button>
+
+        <!-- #ifdef MP-WEIXIN -->
+        <button class="wechat-button" :loading="submitting" :disabled="submitting" @click="loginWithWechat">
+          微信一键登录
+        </button>
+        <!-- #endif -->
 
         <view class="security-tip">
           <text class="shield">◆</text>
@@ -485,6 +507,20 @@ function goToRegister() {
   justify-content: center;
   color: #98a7a1;
   font-size: 12px;
+}
+
+.wechat-button {
+  height: 56px;
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #1aad19;
+  border-radius: 14px;
+  color: #168516;
+  background: #fff;
+  font-size: 16px;
+  font-weight: 600;
 }
 
 .register-entry {

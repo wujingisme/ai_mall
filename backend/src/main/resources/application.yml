@@ -21,6 +21,12 @@ auth:
   max-login-failures: ${MAX_LOGIN_FAILURES:5}
   lock-seconds: ${LOGIN_LOCK_SECONDS:900}
 
+wechat:
+  mini-program:
+    # AppSecret 只能由后端环境变量提供，绝不能写入小程序包。
+    app-id: ${WECHAT_MINI_PROGRAM_APP_ID:}
+    app-secret: ${WECHAT_MINI_PROGRAM_APP_SECRET:}
+
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true

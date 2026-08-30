@@ -18,7 +18,7 @@ This file is the shared, repository-local memory for all AI Mall tasks. Read it 
 
 - Backend: `http://localhost:8080`
 - Admin dev server: `http://localhost:5174`; Vite proxies `/api` to `http://localhost:8080`.
-- UniApp H5 uses its Vite development proxy for `/api`.
+- UniApp API destination is controlled by `frontend/.env.*`. As of 2026-08-30, `.env.development` contains duplicate `VITE_API_BASE_URL` declarations (remote first, local second, so the last value normally wins), while `.env.production` points to `http://124.221.241.24:8081`. Confirm the active build mode before deciding which database received a write.
 - A frontend message such as “无法连接服务器” normally means the backend is not listening on port 8080, backend startup failed (often database configuration), or the frontend was opened without its development proxy.
 
 ### Common commands
@@ -90,10 +90,12 @@ As of 2026-08-29:
 
 - Admin bundle can be reduced later with route-level dynamic imports/manual chunks.
 - When diagnosing login connectivity, first check whether port 8080 is listening and inspect backend startup logs before changing frontend code.
+- Clean up the duplicate UniApp development API environment values and define an explicit per-target strategy: H5 development can use the Vite `/api` proxy, while a real device/emulator must use an address reachable from that device. `localhost` on a device is not the development PC.
 - Do not assume a successful UI route guard secures an API; authorization must remain enforced by Spring Security.
 
 ## Change log
 
+- 2026-08-30 — `frontend/config diagnosis`: confirmed that UniApp can target different backend/database instances depending on build mode; development currently has duplicate local/remote API values and production targets `124.221.241.24:8081`. No runtime code changed.
 - 2026-08-29 — `workspace`: added `AGENTS.md` and this shared memory file so future tasks can reuse architecture, commands, conventions, status, and recent decisions. Verified the files are repository-root scoped.
 - 2026-08-29 — `admin`: aligned Ant Design and custom CSS with the UniApp forest-green/warm-gold visual style; redesigned the admin login page to match the UniApp brand layout. Verified with `npm run build`.
 - 2026-08-28 — `admin`: repaired the npm installation and generated `package-lock.json`; fixed stale-state behavior in product search/reset. Verified TypeScript and production build.

@@ -3,6 +3,7 @@ package com.aimall.auth.controller;
 import com.aimall.auth.dto.LoginRequest;
 import com.aimall.auth.dto.RegisterRequest;
 import com.aimall.auth.dto.RefreshTokenRequest;
+import com.aimall.auth.dto.WechatLoginRequest;
 import com.aimall.auth.service.AuthService;
 import com.aimall.auth.vo.CurrentUserResponse;
 import com.aimall.auth.vo.TokenResponse;
@@ -27,6 +28,11 @@ public class AuthController {
     @PostMapping("/login")
     public TokenResponse login(@Valid @RequestBody LoginRequest request) {
         return authService.login(request);
+    }
+
+    @PostMapping("/wechat/login")
+    public TokenResponse wechatLogin(@Valid @RequestBody WechatLoginRequest request) {
+        return authService.loginWithWechat(request.code());
     }
 
     @PostMapping("/refresh")

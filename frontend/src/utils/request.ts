@@ -59,7 +59,7 @@ function executeRequest<T>(options: UniApp.RequestOptions, retried: boolean): Pr
           return
         }
 
-        const publicAuthPaths = ['/api/v1/auth/login', '/api/v1/auth/register', '/api/v1/auth/refresh', '/api/v1/auth/logout']
+        const publicAuthPaths = ['/api/v1/auth/login', '/api/v1/auth/wechat/login', '/api/v1/auth/register', '/api/v1/auth/refresh', '/api/v1/auth/logout']
         const isPublicAuth = publicAuthPaths.some((path) => String(options.url).includes(path))
         // 并发 401 共用一个刷新 Promise，每个原请求最多重放一次，避免刷新风暴和死循环。
         if (response.statusCode === 401 && !retried && !isPublicAuth && getRefreshToken()) {

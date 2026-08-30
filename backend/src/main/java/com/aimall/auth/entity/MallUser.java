@@ -10,6 +10,8 @@ public class MallUser {
     private String passwordHash;
     private String displayName;
     private String avatarUrl;
+    private String wechatOpenId;
+    private String wechatUnionId;
     private String roles;
     private Boolean enabled;
     private Integer failedLoginAttempts;
@@ -20,6 +22,8 @@ public class MallUser {
     public String getPasswordHash() { return passwordHash; }
     public String getDisplayName() { return displayName; }
     public String getAvatarUrl() { return avatarUrl; }
+    public String getWechatOpenId() { return wechatOpenId; }
+    public String getWechatUnionId() { return wechatUnionId; }
     public String getRoles() { return roles; }
     public Boolean getEnabled() { return enabled; }
     public Integer getFailedLoginAttempts() { return failedLoginAttempts; }
@@ -27,6 +31,8 @@ public class MallUser {
     public void setUsername(String username) { this.username = username; }
     public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
     public void setDisplayName(String displayName) { this.displayName = displayName; }
+    public void setWechatOpenId(String value) { this.wechatOpenId = value; }
+    public void setWechatUnionId(String value) { this.wechatUnionId = value; }
     public void setRoles(String roles) { this.roles = roles; }
     public void setEnabled(Boolean enabled) { this.enabled = enabled; }
     public void setFailedLoginAttempts(Integer value) { this.failedLoginAttempts = value; }
