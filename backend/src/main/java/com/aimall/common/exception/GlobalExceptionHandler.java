@@ -6,6 +6,7 @@ import com.aimall.auth.exception.InvalidCredentialsException;
 import com.aimall.auth.exception.UsernameAlreadyExistsException;
 import com.aimall.auth.exception.RefreshTokenInvalidException;
 import com.aimall.auth.exception.WechatLoginException;
+import com.aimall.auth.exception.CustomerNotFoundException;
 import com.aimall.cart.exception.CartItemNotFoundException;
 import com.aimall.cart.exception.CartProductUnavailableException;
 import com.aimall.coupon.exception.CouponTemplateNotFoundException;
@@ -127,6 +128,12 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ErrorResponse.of("USER_COUPON_NOT_FOUND", e.getMessage()));
     }
+
+    @ExceptionHandler(CustomerNotFoundException.class)
+    ResponseEntity<ErrorResponse> handleCustomerNotFound(CustomerNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ErrorResponse.of("USER_NOT_FOUND", e.getMessage()));
+    }
+
 
     @ExceptionHandler({SkuConflictException.class, DuplicateKeyException.class})
     ResponseEntity<ErrorResponse> handleConflict(Exception e) {

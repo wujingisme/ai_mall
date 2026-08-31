@@ -359,6 +359,66 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/admin/customers/manage:
+    get:
+      tags: [AdminCustomers]
+      summary: 分页查询商城用户
+      operationId: listAdminUsers
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: pageSize, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { name: keyword, in: query, schema: { type: string, maxLength: 100 } }
+        - { name: enabled, in: query, schema: { type: boolean } }
+      responses:
+        '200': { description: 查询成功, content: { application/json: { schema: { $ref: '#/components/schemas/AdminUserPage' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/admin/customers/manage/{id}:
+    get:
+      tags: [AdminCustomers]
+      summary: 查看商城用户详情
+      operationId: getAdminUser
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, pattern: '^[1-9][0-9]*$' } }]
+      responses:
+        '200': { description: 查询成功, content: { application/json: { schema: { $ref: '#/components/schemas/AdminUser' } } } }
+        '404': { $ref: '#/components/responses/UserNotFound' }
+
+  /api/v1/admin/customers/manage/{id}/activation:
+    post:
+      tags: [AdminCustomers]
+      summary: 启用商城用户
+      operationId: activateAdminUser
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, pattern: '^[1-9][0-9]*$' } }]
+      responses:
+        '200': { description: 操作成功, content: { application/json: { schema: { $ref: '#/components/schemas/AdminUser' } } } }
+        '404': { $ref: '#/components/responses/UserNotFound' }
+  /api/v1/admin/customers/manage/{id}/deactivation:
+    post:
+      tags: [AdminCustomers]
+      summary: 停用商城用户
+      operationId: deactivateAdminUser
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, pattern: '^[1-9][0-9]*$' } }]
+      responses:
+        '200': { description: 操作成功, content: { application/json: { schema: { $ref: '#/components/schemas/AdminUser' } } } }
+        '404': { $ref: '#/components/responses/UserNotFound' }
+  /api/v1/admin/customers/manage/{id}/coupons:
+    get:
+      tags: [AdminCustomers]
+      summary: 查看商城用户优惠券
+      operationId: listAdminUserCoupons
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, pattern: '^[1-9][0-9]*$' } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: pageSize, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { name: status, in: query, schema: { type: string, enum: [AVAILABLE, USED, EXPIRED] } }
+      responses:
+        '200': { description: 查询成功, content: { application/json: { schema: { $ref: '#/components/schemas/UserCouponPage' } } } }
+        '404': { $ref: '#/components/responses/UserNotFound' }
   /api/v1/me/coupons:
     get:
       tags: [MyCoupons]
@@ -707,6 +767,26 @@ components:
         pageSize: { type: integer }
         total: { type: integer, format: int64 }
         totalPages: { type: integer, format: int64 }
+    AdminUser:
+      allOf:
+        - { $ref: '#/components/schemas/CustomerSummary' }
+        - type: object
+          required: [enabled, roles, wechatBound]
+          properties:
+            enabled: { type: boolean }
+            roles: { type: string, example: CUSTOMER }
+            wechatBound: { type: boolean, description: 是否绑定微信，不返回 OpenID }
+            createdAt: { type: string, format: date-time, nullable: true }
+            updatedAt: { type: string, format: date-time, nullable: true }
+    AdminUserPage:
+      type: object
+      required: [items, page, pageSize, total, totalPages]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/AdminUser' } }
+        page: { type: integer }
+        pageSize: { type: integer }
+        total: { type: integer, format: int64 }
+        totalPages: { type: integer, format: int64 }
     ProductStatus:
       type: integer
       enum: [0, 1]
@@ -795,4 +875,7 @@ components:
       content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
     UserCouponNotFound:
       description: 优惠券不存在或不属于当前用户
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
+    UserNotFound:
+      description: 商城用户不存在
       content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }

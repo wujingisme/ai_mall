@@ -18,4 +18,5 @@ public interface CouponTemplateMapper extends BaseMapper<CouponTemplate> {
               AND (validity_type <> 'FIXED_RANGE' OR valid_until > CURRENT_TIMESTAMP(3))
             """)
     int reserveIssueQuantity(@Param("templateId") Long templateId, @Param("quantity") int quantity);
+
 }

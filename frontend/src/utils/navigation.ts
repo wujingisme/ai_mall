@@ -5,6 +5,8 @@ export const ROUTES = {
   productDetail: '/pages/product/detail',
   cart: '/pages/cart/index',
   profile: '/pages/profile/index',
+  coupons: '/pages/coupon/list',
+  couponDetail: '/pages/coupon/detail',
 } as const
 
 const tabRoutes = new Set<string>([ROUTES.home, ROUTES.cart, ROUTES.profile])

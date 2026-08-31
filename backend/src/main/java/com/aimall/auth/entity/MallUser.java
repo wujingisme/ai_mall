@@ -16,6 +16,8 @@ public class MallUser {
     private Boolean enabled;
     private Integer failedLoginAttempts;
     private LocalDateTime lockedUntil;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 
     public Long getId() { return id; }
     public String getUsername() { return username; }
@@ -28,6 +30,8 @@ public class MallUser {
     public Boolean getEnabled() { return enabled; }
     public Integer getFailedLoginAttempts() { return failedLoginAttempts; }
     public LocalDateTime getLockedUntil() { return lockedUntil; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUsername(String username) { this.username = username; }
     public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
     public void setDisplayName(String displayName) { this.displayName = displayName; }

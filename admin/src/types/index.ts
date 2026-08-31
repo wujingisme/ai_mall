@@ -35,3 +35,13 @@ export interface CouponTemplatePage {
   total: number;
   totalPages: number;
 }
+export interface CustomerSummary { id: string; username: string; displayName: string; avatarUrl?: string }
+export interface CustomerPage { items: CustomerSummary[]; page: number; pageSize: number; total: number; totalPages: number }
+export interface CouponGrantPayload { templateId: string; targetUserId: string; quantity: number; reason: string; idempotencyKey: string }
+export interface CouponGrant extends CouponGrantPayload {
+  id: string; operatorUserId: string; requestedQuantity: number; successQuantity: number; status: 'SUCCESS'; createdAt: string;
+}
+export interface AdminUser extends CustomerSummary { enabled: boolean; roles: string; wechatBound: boolean; createdAt?: string; updatedAt?: string }
+export interface AdminUserPage { items: AdminUser[]; page: number; pageSize: number; total: number; totalPages: number }
+export interface AdminUserCoupon { id: string; templateId: string; name: string; minimumSpend: string; discountAmount: string; validFrom: string; validUntil: string; status: 'AVAILABLE' | 'USED' | 'EXPIRED'; source: 'MANUAL'; createdAt: string }
+export interface AdminUserCouponPage { items: AdminUserCoupon[]; page: number; pageSize: number; total: number; totalPages: number }

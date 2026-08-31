@@ -1,0 +1,26 @@
+import { EyeOutlined, ReloadOutlined, SearchOutlined } from '@ant-design/icons';
+import { Button, Card, Descriptions, Drawer, Input, Select, Space, Table, Tag, Typography, message } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
+import { useEffect, useState } from 'react';
+import { activateAdminUser, deactivateAdminUser, getAdminUser, listAdminUserCoupons, listAdminUsers } from '../api';
+import type { AdminUser, AdminUserCoupon, AdminUserCouponPage } from '../types';
+
+export default function AdminUsersPage() {
+  const [items, setItems] = useState<AdminUser[]>([]); const [loading, setLoading] = useState(false);
+  const [keyword, setKeyword] = useState(''); const [enabled, setEnabled] = useState<boolean>();
+  const [page, setPage] = useState(1); const [pageSize, setPageSize] = useState(10); const [total, setTotal] = useState(0);
+  const [current, setCurrent] = useState<AdminUser>(); const [drawer, setDrawer] = useState(false); const [coupons, setCoupons] = useState<AdminUserCoupon[]>([]); const [couponTotal, setCouponTotal] = useState(0);
+  const load = async (overrides: Partial<{ page: number; pageSize: number; keyword: string; enabled: boolean | undefined }> = {}) => { setLoading(true); try { const query = { page, pageSize, keyword, enabled, ...overrides }; const data = await listAdminUsers({ ...query, keyword: query.keyword.trim() || undefined }); setItems(data.items); setTotal(data.total); } catch { message.error('用户列表加载失败'); } finally { setLoading(false); } };
+  useEffect(() => { void load(); }, [page, pageSize, enabled]);
+  const open = async (user: AdminUser) => { try { const detail = await getAdminUser(user.id); setCurrent(detail); const data = await listAdminUserCoupons(user.id, { page: 1, pageSize: 10 }); setCoupons(data.items); setCouponTotal(data.total); setDrawer(true); } catch { message.error('用户详情加载失败'); } };
+  const toggle = async (user: AdminUser) => { try { const next = user.enabled ? await deactivateAdminUser(user.id) : await activateAdminUser(user.id); setItems((list) => list.map((item) => item.id === next.id ? next : item)); message.success(next.enabled ? '用户已启用' : '用户已停用'); if (current?.id === next.id) setCurrent(next); } catch { message.error('用户状态修改失败'); } };
+  const columns: ColumnsType<AdminUser> = [
+    { title: '用户', render: (_, row) => <div><Typography.Text strong>{row.displayName}</Typography.Text><br /><Typography.Text type="secondary">{row.username}（ID：{row.id}）</Typography.Text></div> },
+    { title: '微信登录', dataIndex: 'wechatBound', render: (value) => value ? <Tag color="success">已绑定</Tag> : <Tag>未绑定</Tag> },
+    { title: '状态', dataIndex: 'enabled', render: (value) => value ? <Tag color="success">正常</Tag> : <Tag color="error">已停用</Tag> },
+    { title: '注册时间', dataIndex: 'createdAt', render: (value) => value ? new Date(value).toLocaleString('zh-CN', { hour12: false }) : '-' },
+    { title: '操作', render: (_, row) => <Space><Button type="link" icon={<EyeOutlined />} onClick={() => open(row)}>查看</Button><Button type="link" danger={row.enabled} onClick={() => toggle(row)}>{row.enabled ? '停用' : '启用'}</Button></Space> },
+  ];
+  return <><Card title="用户管理"><Space wrap className="filters"><Input value={keyword} allowClear prefix={<SearchOutlined />} placeholder="账号 / 昵称" onChange={(e) => setKeyword(e.target.value)} onPressEnter={() => { setPage(1); void load({ page: 1 }); }} /><Select allowClear placeholder="全部状态" value={enabled} onChange={(value) => { setEnabled(value); setPage(1); }} options={[{ value: true, label: '正常' }, { value: false, label: '已停用' }]} /><Button icon={<SearchOutlined />} onClick={() => { setPage(1); void load({ page: 1 }); }}>查询</Button><Button icon={<ReloadOutlined />} onClick={() => { setKeyword(''); setEnabled(undefined); setPage(1); void load({ page: 1, keyword: '', enabled: undefined }); }}>重置</Button></Space><Table rowKey="id" loading={loading} columns={columns} dataSource={items} scroll={{ x: 850 }} pagination={{ current: page, pageSize, total, showSizeChanger: true, showTotal: (value) => `共 ${value} 条`, onChange: (next, size) => { setPage(next); setPageSize(size); } }} /></Card>
+    <Drawer width={620} title="用户详情" open={drawer} onClose={() => setDrawer(false)}>{current && <><Descriptions bordered column={1}><Descriptions.Item label="显示名称">{current.displayName}</Descriptions.Item><Descriptions.Item label="登录账号">{current.username}</Descriptions.Item><Descriptions.Item label="用户 ID">{current.id}</Descriptions.Item><Descriptions.Item label="微信绑定">{current.wechatBound ? '已绑定（身份信息已隐藏）' : '未绑定'}</Descriptions.Item><Descriptions.Item label="状态">{current.enabled ? '正常' : '已停用'}</Descriptions.Item><Descriptions.Item label="注册时间">{current.createdAt ? new Date(current.createdAt).toLocaleString('zh-CN', { hour12: false }) : '-'}</Descriptions.Item></Descriptions><Typography.Title level={5} style={{ marginTop: 24 }}>优惠券（{couponTotal}）</Typography.Title><Table size="small" rowKey="id" pagination={false} dataSource={coupons} columns={[{ title: '名称', dataIndex: 'name' }, { title: '规则', render: (_, row: AdminUserCoupon) => `满 ¥${row.minimumSpend} 减 ¥${row.discountAmount}` }, { title: '状态', dataIndex: 'status', render: (value) => <Tag>{value === 'AVAILABLE' ? '可使用' : value === 'USED' ? '已使用' : '已过期'}</Tag> }]} /></>}</Drawer></>;
+}
