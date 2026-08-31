@@ -57,6 +57,7 @@ Backend startup requires a reachable MySQL database and the required environment
 - Access tokens are signed JWTs and include a `roles` claim.
 - Refresh tokens are opaque, stored as hashes, rotated on refresh, and revoked on logout.
 - Admin Axios logic lives in `admin/src/utils/request.ts`; session storage lives in `admin/src/utils/auth.ts`.
+- Admin API origin is configured by `admin/.env.development` and `admin/.env.production`; Vite development proxies `/api` to the configured development origin, while production uses the configured server origin and its `/api` reverse proxy.
 - UniApp request/session logic lives under `frontend/src/utils/`.
 - Consumer startup now opens the public product home directly. Successful login defaults to home unless a safe internal redirect was supplied; public home/detail/profile routes remain browsable without login, while cart navigation requires a session and backend authorization remains authoritative.
 - Frontend navigation policy is centralized in `frontend/src/utils/navigation.ts`. Session freshness and concurrent `/auth/me` deduplication are centralized in `frontend/src/utils/session-validation.ts`; the default runtime validation window is 60 seconds. Background session validation can clear stale credentials without forcing a public page to jump to login.
@@ -127,6 +128,8 @@ As of 2026-08-31:
 - Do not assume a successful UI route guard secures an API; authorization must remain enforced by Spring Security.
 
 ## Change log
+
+- 2026-08-31 — `admin/environment-config`: separated Admin development and production API origins into `.env.development` and `.env.production`; centralized Axios base URL construction and made the Vite development proxy read the same configuration. Quick TypeScript check passed; no dependencies installed.
 
 - 2026-08-31 — `coupon/share-claim`: added secure random share tokens (hash-only persistence), public preview, authenticated claim, creator/self-claim protection, per-share uniqueness, template inventory/limit checks, migration SQL, and mini-program share/claim pages; updated OpenAPI, design status, and learning notes. Quick backend compile plus frontend/admin type-check passed; no database migration, runtime API, or two-account WeChat acceptance was run.
 - 2026-08-31 — `admin/coupon-grants/usability`: changed the per-user-limit conflict message to plain Chinese and defaulted the manual-grant reason to “活动发放” while keeping it editable. Quick Maven compile and admin type-check passed.
