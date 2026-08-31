@@ -58,6 +58,8 @@ Backend startup requires a reachable MySQL database and the required environment
 - Refresh tokens are opaque, stored as hashes, rotated on refresh, and revoked on logout.
 - Admin Axios logic lives in `admin/src/utils/request.ts`; session storage lives in `admin/src/utils/auth.ts`.
 - UniApp request/session logic lives under `frontend/src/utils/`.
+- Consumer startup now opens the public product home directly. Successful login defaults to home unless a safe internal redirect was supplied; public home/detail/profile routes remain browsable without login, while cart navigation requires a session and backend authorization remains authoritative.
+- Frontend navigation policy is centralized in `frontend/src/utils/navigation.ts`. Session freshness and concurrent `/auth/me` deduplication are centralized in `frontend/src/utils/session-validation.ts`; the default runtime validation window is 60 seconds. Background session validation can clear stale credentials without forcing a public page to jump to login.
 
 ## Current UI direction
 
@@ -89,6 +91,8 @@ The React admin theme is configured in `admin/src/main.tsx`, with application CS
 - JWT request authentication is implemented under `backend/src/main/java/com/aimall/auth/security/` and registered by `SecurityConfig`.
 - Keep consumer product reads on `/shop/products`; do not expose admin CRUD endpoints for consumer use.
 - API shape changes must also update `api/openapi.yaml` and affected TypeScript types/clients.
+- Consumer product-list tab data is retained for 30 seconds during tab switching; pull-to-refresh, search, and “换一批” force a refresh. Product card images use mini-program lazy loading.
+- `FRONTEND_OPTIMIZATION_NOTES.md` is a short Chinese review/interview note covering only the reasons, implementation, effects, boundaries, and main code locations of the frontend optimizations. Keep it concise and aligned when these behaviors change.
 
 ## Incremental delivery roadmap
 
@@ -116,6 +120,9 @@ As of 2026-08-31:
 
 ## Change log
 
+- 2026-08-31 — `frontend/documentation`: condensed `FRONTEND_OPTIMIZATION_NOTES.md` to a one-page key-points format covering startup, navigation, request deduplication, progressive profile refresh, product caching, lazy loading, security boundaries, and a short interview summary. Documentation-only change; no verification run.
+- 2026-08-31 — `frontend/documentation`: added `FRONTEND_OPTIMIZATION_NOTES.md`, a Chinese study and interview guide explaining the implemented startup, navigation, session validation, caching, lazy loading, security-boundary, tradeoff, measurement, and future-extension decisions, including a consolidated cause/implementation/effect/cost matrix. Documentation-only change; no verification run.
+- 2026-08-31 — `frontend/startup/navigation/session/performance`: changed the mini-program launch page and default post-login destination to the product home; centralized route constants, safe redirects, and tab navigation; limited navigation-level auth protection to private cart data; added single-flight 60-second session validation with non-disruptive background failure handling; made profile render cached user data immediately; cached product-list tab data for 30 seconds while preserving forced refresh/search behavior; and enabled lazy product images. Existing stored sessions and backend APIs remain compatible. Verified only with `npm run type-check`; no full mini-program build or automated runtime test was run.
 - 2026-08-31 — `batch 1/manual acceptance`: successfully completed real WeChat mini-program login in Weixin DevTools after environment inheritance and non-standard Content-Type handling were corrected. Batch 1 is complete; Batch 2 coupon template management is next. Manual runtime acceptance only; no additional automated verification was run.
 - 2026-08-31 — `workspace/verification workflow`: refined the user's preference to allow quick compilation/type checks while avoiding time-consuming test suites, full builds, dependency installation, or broad verification unless requested. Documentation-only workflow update.
 - 2026-08-31 — `backend/auth/wechat compile fix`: corrected checked-`IOException` handling across HTTP status/body reads and Jackson byte-array parsing, keeping these failures inside the sanitized provider boundary without changing API behavior. Verified with a quick `mvn -DskipTests compile`; compilation succeeds. Tests were not run.

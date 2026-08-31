@@ -9,6 +9,9 @@ const keyword = ref('')
 const page = ref(1)
 const totalPages = ref(1)
 const loading = ref(false)
+const activeKeyword = ref('')
+let lastLoadedAt = 0
+const CACHE_MAX_AGE_MS = 30_000
 
 // 消费者只能进入商品详情，不暴露新增、编辑和删除等后台能力。
 function goToDetail(id: string) {
@@ -16,27 +19,35 @@ function goToDetail(id: string) {
 }
 
 // 消费端固定只查询已上架商品；下拉刷新替换数据，触底时追加下一页。
-async function load(reset = false) {
+async function load(options: { reset?: boolean; force?: boolean } = {}) {
+  const { reset = false, force = false } = options
   if (loading.value || (!reset && page.value > totalPages.value)) return
+  if (reset && !force && lastLoadedAt > 0 && Date.now() - lastLoadedAt < CACHE_MAX_AGE_MS) return
   loading.value = true
   try {
     if (reset) page.value = 1
     const result = await shopApi.list({
       page: page.value,
       pageSize: 20,
-      keyword: keyword.value.trim() || undefined,
+      keyword: activeKeyword.value || undefined,
     })
     products.value = reset ? result.items : [...products.value, ...result.items]
     totalPages.value = result.totalPages
     page.value += 1
+    lastLoadedAt = Date.now()
   } finally {
     loading.value = false
     uni.stopPullDownRefresh()
   }
 }
 
-onShow(() => load(true))
-onPullDownRefresh(() => load(true))
+function search() {
+  activeKeyword.value = keyword.value.trim()
+  void load({ reset: true, force: true })
+}
+
+onShow(() => load({ reset: true }))
+onPullDownRefresh(() => load({ reset: true, force: true }))
 onReachBottom(() => load())
 </script>
 
@@ -48,19 +59,19 @@ onReachBottom(() => load())
       <text class="subtitle">精选品质商品，让每次选择都更简单</text>
       <view class="search-wrap">
         <text class="search-icon">⌕</text>
-        <input v-model="keyword" class="search" placeholder="搜索你喜欢的商品" confirm-type="search" @confirm="load(true)" />
-        <button class="search-button" @click="load(true)">搜索</button>
+        <input v-model="keyword" class="search" placeholder="搜索你喜欢的商品" confirm-type="search" @confirm="search" />
+        <button class="search-button" @click="search">搜索</button>
       </view>
     </view>
 
     <view class="section-heading">
       <view><text class="section-title">今日精选</text><text class="section-note">为你挑选的热门好物</text></view>
-      <text class="refresh" @click="load(true)">换一批</text>
+      <text class="refresh" @click="load({ reset: true, force: true })">换一批</text>
     </view>
 
     <view v-if="products.length" class="grid">
       <view v-for="item in products" :key="item.id" class="card" @click="goToDetail(item.id)">
-        <image v-if="item.imageUrl" class="image" :src="item.imageUrl" mode="aspectFill" />
+        <image v-if="item.imageUrl" class="image" :src="item.imageUrl" mode="aspectFill" lazy-load />
         <view v-else class="image placeholder">AI MALL</view>
         <text v-if="item.soldOut" class="sold-out">已售罄</text>
         <view class="card-content">

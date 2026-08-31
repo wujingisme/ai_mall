@@ -2,41 +2,39 @@
 import { computed, ref } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import { authApi } from '@/api/auth'
-import { getAccessToken, saveAuthSession, updateCurrentUser } from '@/utils/auth-storage'
+import { getAccessToken, saveAuthSession } from '@/utils/auth-storage'
+import { navigateAfterLogin, safeInternalRoute } from '@/utils/navigation'
+import { markSessionValidated, validateCurrentUser } from '@/utils/session-validation'
 
 const account = ref('')
 const password = ref('')
 const remember = ref(true)
 const showPassword = ref(false)
 const submitting = ref(false)
+const restoring = ref(false)
 const redirectPath = ref('')
 
 onLoad((query) => {
   let candidate = ''
   try { candidate = typeof query?.redirect === 'string' ? decodeURIComponent(query.redirect) : '' } catch { candidate = '' }
   // 只接受应用内绝对路径，避免登录后被构造为外部开放重定向。
-  redirectPath.value = candidate.startsWith('/') && !candidate.startsWith('//') ? candidate : ''
+  redirectPath.value = safeInternalRoute(candidate) || ''
 })
 
 onShow(async () => {
-  if (!getAccessToken()) return
+  if (!getAccessToken() || restoring.value || submitting.value) return
   try {
-    // 已保存的会话必须通过后端校验后才能跳过登录页。
-    updateCurrentUser(await authApi.me())
-    uni.switchTab({ url: '/pages/product/list' })
+    restoring.value = true
+    await validateCurrentUser()
+    navigateAfterLogin(redirectPath.value)
   } catch {
     // 无效会话由统一请求层清理，用户继续停留在登录页。
+  } finally {
+    restoring.value = false
   }
 })
 
 const canSubmit = computed(() => account.value.trim().length > 0 && password.value.length >= 6)
-
-function navigateAfterLogin() {
-  const target = redirectPath.value || '/pages/profile/index'
-  const tabPages = ['/pages/product/list', '/pages/cart/index', '/pages/profile/index']
-  if (tabPages.includes(target.split('?')[0])) uni.switchTab({ url: target })
-  else uni.redirectTo({ url: target })
-}
 
 function toggleRemember() {
   remember.value = !remember.value
@@ -61,8 +59,9 @@ async function submit() {
       password: password.value,
     })
     saveAuthSession(session, remember.value)
+    markSessionValidated()
     uni.showToast({ title: '登录成功', icon: 'success' })
-    navigateAfterLogin()
+    navigateAfterLogin(redirectPath.value)
   } catch {
     // 请求工具已经展示后端错误信息，这里只负责恢复按钮状态。
   } finally {
@@ -77,8 +76,9 @@ async function loginWithWechat() {
     if (!loginResult.code) throw new Error('未获取到微信登录凭证')
     const session = await authApi.wechatLogin({ code: loginResult.code })
     saveAuthSession(session, true)
+    markSessionValidated()
     uni.showToast({ title: '微信登录成功', icon: 'success' })
-    navigateAfterLogin()
+    navigateAfterLogin(redirectPath.value)
   } catch (error) {
     if (error instanceof Error && error.message) uni.showToast({ title: error.message, icon: 'none' })
   } finally {

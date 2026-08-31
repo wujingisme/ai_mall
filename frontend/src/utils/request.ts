@@ -7,6 +7,10 @@ const baseUrl =
 
 let refreshPromise: Promise<TokenResponse> | null = null
 
+interface MallRequestOptions extends UniApp.RequestOptions {
+  redirectOnUnauthorized?: boolean
+}
+
 function refreshSession(): Promise<TokenResponse> {
   if (refreshPromise) return refreshPromise
   const refreshToken = getRefreshToken()
@@ -38,15 +42,16 @@ function redirectToLogin() {
   if (pages[pages.length - 1]?.route !== 'pages/auth/login') uni.reLaunch({ url: '/pages/auth/login' })
 }
 
-export function request<T>(options: UniApp.RequestOptions): Promise<T> {
+export function request<T>(options: MallRequestOptions): Promise<T> {
   return executeRequest<T>(options, false)
 }
 
-function executeRequest<T>(options: UniApp.RequestOptions, retried: boolean): Promise<T> {
+function executeRequest<T>(options: MallRequestOptions, retried: boolean): Promise<T> {
   return new Promise((resolve, reject) => {
     const accessToken = getAccessToken()
+    const { redirectOnUnauthorized = true, ...requestOptions } = options
     uni.request({
-      ...options,
+      ...requestOptions,
       url: `${baseUrl}${options.url}`,
       header: {
         'Content-Type': 'application/json',
@@ -65,12 +70,19 @@ function executeRequest<T>(options: UniApp.RequestOptions, retried: boolean): Pr
         if (response.statusCode === 401 && !retried && !isPublicAuth && getRefreshToken()) {
           refreshSession()
             .then(() => executeRequest<T>(options, true).then(resolve, reject))
-            .catch((error) => { redirectToLogin(); reject(error) })
+            .catch((error) => {
+              if (redirectOnUnauthorized) redirectToLogin()
+              else clearAuthSession()
+              reject(error)
+            })
           return
         }
 
         // 没有刷新令牌或刷新后的请求仍返回 401 时，立即清理伪登录状态并返回登录页。
-        if (response.statusCode === 401 && !isPublicAuth) redirectToLogin()
+        if (response.statusCode === 401 && !isPublicAuth) {
+          if (redirectOnUnauthorized) redirectToLogin()
+          else clearAuthSession()
+        }
 
         const error = response.data as ApiError
         uni.showToast({ title: error?.message || '请求失败', icon: 'none' })

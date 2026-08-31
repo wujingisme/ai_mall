@@ -3,26 +3,24 @@ import { computed, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import type { CurrentUser } from '@/types/auth'
 import { authApi } from '@/api/auth'
-import { clearAuthSession, getCurrentUser, getRefreshToken, updateCurrentUser } from '@/utils/auth-storage'
+import { clearAuthSession, getCurrentUser, getRefreshToken } from '@/utils/auth-storage'
+import { navigateToLogin, ROUTES } from '@/utils/navigation'
+import { resetSessionValidation, validateCurrentUser } from '@/utils/session-validation'
 
 const user = ref<CurrentUser | null>(null)
 const avatarText = computed(() => (user.value?.displayName || user.value?.username || 'A').slice(0, 1).toUpperCase())
 
-// tabBar 页面会被缓存，因此每次进入“我的”页面都重新读取最新登录状态。
-onShow(async () => {
+// 先同步显示缓存资料，再按会话新鲜度在后台更新，避免进入页面时等待网络。
+onShow(() => {
   user.value = getCurrentUser()
   if (!user.value) return
-  try {
-    // 进入个人页时向后端校验登录状态，并以数据库中的最新用户资料覆盖本地缓存。
-    user.value = await authApi.me()
-    updateCurrentUser(user.value)
-  } catch {
-    // 401 的刷新及跳转由统一请求层处理。
-  }
+  void validateCurrentUser()
+    .then((latestUser) => { user.value = latestUser })
+    .catch(() => { user.value = null })
 })
 
 function goLogin() {
-  if (!user.value) uni.navigateTo({ url: '/pages/auth/login' })
+  if (!user.value) navigateToLogin(ROUTES.profile)
 }
 function comingSoon() { uni.showToast({ title: '功能即将上线', icon: 'none' }) }
 
@@ -38,8 +36,9 @@ function logout() {
       } finally {
         // 即使网络异常也清除本机会话；后端接口本身保持幂等。
         clearAuthSession()
+        resetSessionValidation()
         user.value = null
-        uni.reLaunch({ url: '/pages/auth/login' })
+        uni.switchTab({ url: ROUTES.home })
       }
     },
   })

@@ -24,6 +24,6 @@ export const authApi = {
     request<void>({ url: `${resource}/logout`, method: 'POST', data }),
 
   // 使用访问令牌查询当前登录用户，用于恢复和校验登录状态。
-  me: () =>
-    request<CurrentUser>({ url: `${resource}/me`, method: 'GET' }),
+  me: (options: { redirectOnUnauthorized?: boolean } = {}) =>
+    request<CurrentUser>({ url: `${resource}/me`, method: 'GET', ...options }),
 }

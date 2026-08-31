@@ -1,16 +1,16 @@
 {
   "pages": [
     {
+      "path": "pages/product/list",
+      "style": { "navigationStyle": "custom", "enablePullDownRefresh": true }
+    },
+    {
       "path": "pages/auth/login",
       "style": { "navigationStyle": "custom" }
     },
     {
       "path": "pages/auth/register",
       "style": { "navigationStyle": "custom" }
-    },
-    {
-      "path": "pages/product/list",
-      "style": { "navigationStyle": "custom", "enablePullDownRefresh": true }
     },
     {
       "path": "pages/product/detail",
