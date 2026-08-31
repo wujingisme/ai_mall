@@ -30,6 +30,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/v1/auth/register", "/api/v1/auth/login", "/api/v1/auth/wechat/login",
                                 "/api/v1/auth/refresh", "/api/v1/auth/logout").permitAll()
+                        .requestMatchers("/api/v1/coupon-shares/resolve").permitAll()
                         .requestMatchers("/api/v1/shop/products/**").permitAll()
                         // 购物车按 JWT 中的用户 ID 隔离，游客不能读取或修改任何购物车数据。
                         .requestMatchers("/api/v1/cart/**").authenticated()

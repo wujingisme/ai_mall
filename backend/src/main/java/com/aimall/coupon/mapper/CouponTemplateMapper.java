@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Update;
+import org.apache.ibatis.annotations.Select;
 
 @Mapper
 public interface CouponTemplateMapper extends BaseMapper<CouponTemplate> {
@@ -18,5 +19,8 @@ public interface CouponTemplateMapper extends BaseMapper<CouponTemplate> {
               AND (validity_type <> 'FIXED_RANGE' OR valid_until > CURRENT_TIMESTAMP(3))
             """)
     int reserveIssueQuantity(@Param("templateId") Long templateId, @Param("quantity") int quantity);
+
+    @Select("SELECT * FROM coupon_template WHERE id = #{id} FOR UPDATE")
+    CouponTemplate selectByIdForUpdate(@Param("id") Long id);
 
 }

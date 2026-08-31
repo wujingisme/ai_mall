@@ -57,6 +57,10 @@ public class UserCouponService {
                 coupon.getSource(), toOffset(coupon.getUsedAt()), toOffset(coupon.getCreatedAt()));
     }
 
+    public UserCouponResponse response(UserCoupon coupon) {
+        return toResponse(coupon, LocalDateTime.now(BUSINESS_ZONE));
+    }
+
     private OffsetDateTime toOffset(LocalDateTime value) {
         return value == null ? null : value.atZone(BUSINESS_ZONE).toOffsetDateTime();
     }

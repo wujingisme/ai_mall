@@ -449,6 +449,45 @@ paths:
           content: { application/json: { schema: { $ref: '#/components/schemas/UserCoupon' } } }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/UserCouponNotFound' }
+  /api/v1/me/coupon-shares:
+    post:
+      tags: [MyCoupons]
+      summary: 为当前用户优惠券生成分享凭证
+      operationId: createCouponShare
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CouponShareCreateRequest' } } }
+      responses:
+        '201': { description: 分享创建成功, content: { application/json: { schema: { $ref: '#/components/schemas/CouponShareCreated' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/CouponShareConflict' }
+  /api/v1/coupon-shares/resolve:
+    post:
+      tags: [MyCoupons]
+      summary: 解析优惠券分享信息
+      operationId: resolveCouponShare
+      security: []
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CouponTokenRequest' } } }
+      responses:
+        '200': { description: 解析成功, content: { application/json: { schema: { $ref: '#/components/schemas/CouponSharePreview' } } } }
+        '404': { $ref: '#/components/responses/CouponShareNotFound' }
+  /api/v1/coupon-claims:
+    post:
+      tags: [MyCoupons]
+      summary: 当前用户领取优惠券分享
+      operationId: claimCouponShare
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CouponTokenRequest' } } }
+      responses:
+        '200': { description: 领取成功或重复领取时返回已有优惠券, content: { application/json: { schema: { $ref: '#/components/schemas/UserCoupon' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/CouponShareNotFound' }
+        '409': { $ref: '#/components/responses/CouponShareConflict' }
   /api/v1/products:
     get:
       tags: [Products]
@@ -755,7 +794,7 @@ components:
         validFrom: { type: string, format: date-time }
         validUntil: { type: string, format: date-time }
         status: { $ref: '#/components/schemas/UserCouponStatus' }
-        source: { type: string, enum: [MANUAL] }
+        source: { type: string, enum: [MANUAL, SHARE] }
         usedAt: { type: string, format: date-time, nullable: true }
         createdAt: { type: string, format: date-time }
     UserCouponPage:
@@ -787,6 +826,30 @@ components:
         pageSize: { type: integer }
         total: { type: integer, format: int64 }
         totalPages: { type: integer, format: int64 }
+    CouponShareCreateRequest:
+      type: object
+      required: [userCouponId]
+      properties: { userCouponId: { type: string, pattern: '^[1-9][0-9]*$' } }
+    CouponTokenRequest:
+      type: object
+      required: [shareToken]
+      properties: { shareToken: { type: string, minLength: 1, maxLength: 128 } }
+    CouponShareCreated:
+      type: object
+      required: [shareToken, sharePath, expiresAt]
+      properties:
+        shareToken: { type: string }
+        sharePath: { type: string }
+        expiresAt: { type: string, format: date-time }
+    CouponSharePreview:
+      type: object
+      required: [name, minimumSpend, discountAmount, expiresAt, claimable]
+      properties:
+        name: { type: string }
+        minimumSpend: { $ref: '#/components/schemas/MoneyString' }
+        discountAmount: { $ref: '#/components/schemas/MoneyString' }
+        expiresAt: { type: string, format: date-time }
+        claimable: { type: boolean }
     ProductStatus:
       type: integer
       enum: [0, 1]
@@ -878,4 +941,10 @@ components:
       content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
     UserNotFound:
       description: 商城用户不存在
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
+    CouponShareNotFound:
+      description: 分享不存在或已失效
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
+    CouponShareConflict:
+      description: 分享不可领取、本人领取、库存不足或达到限领
       content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }

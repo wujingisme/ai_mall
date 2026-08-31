@@ -54,7 +54,7 @@ public class CouponGrantService {
         long received = userCouponMapper.selectCount(new LambdaQueryWrapper<UserCoupon>()
                 .eq(UserCoupon::getTemplateId, template.getId()).eq(UserCoupon::getUserId, target.getId()));
         if (received + request.quantity() > template.getPerUserLimit()) {
-            throw new CouponGrantConflictException("发放后将超过该用户的每人限领数量");
+            throw new CouponGrantConflictException("这个用户已经达到该优惠券的领取上限，暂时不能继续发放");
         }
 
         CouponGrant grant = new CouponGrant();

@@ -10,6 +10,7 @@ public class UserCoupon {
     private Long userId;
     private Long templateId;
     private Long grantId;
+    private Long shareId;
     private String source;
     private String name;
     private String couponType;
@@ -25,6 +26,7 @@ public class UserCoupon {
     public Long getUserId() { return userId; }
     public Long getTemplateId() { return templateId; }
     public Long getGrantId() { return grantId; }
+    public Long getShareId() { return shareId; }
     public String getSource() { return source; }
     public String getName() { return name; }
     public String getCouponType() { return couponType; }
@@ -39,6 +41,7 @@ public class UserCoupon {
     public void setUserId(Long value) { userId = value; }
     public void setTemplateId(Long value) { templateId = value; }
     public void setGrantId(Long value) { grantId = value; }
+    public void setShareId(Long value) { shareId = value; }
     public void setSource(String value) { source = value; }
     public void setName(String value) { name = value; }
     public void setCouponType(String value) { couponType = value; }

@@ -7,6 +7,7 @@ export const ROUTES = {
   profile: '/pages/profile/index',
   coupons: '/pages/coupon/list',
   couponDetail: '/pages/coupon/detail',
+  couponClaim: '/pages/coupon/claim',
 } as const
 
 const tabRoutes = new Set<string>([ROUTES.home, ROUTES.cart, ROUTES.profile])

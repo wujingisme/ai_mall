@@ -46,7 +46,7 @@ export default function CouponGrantsPage() {
         <Select placeholder="请选择已启用模板" options={templates.map((item) => ({ value: item.id, label: `${item.name}｜满 ¥${item.minimumSpend} 减 ¥${item.discountAmount}｜剩余 ${item.totalQuantity - item.issuedQuantity}` }))} />
       </Form.Item>
       <Space size="large" align="start"><Form.Item name="quantity" label="发放数量" initialValue={1} rules={[{ required: true }]}><InputNumber min={1} max={100} precision={0} /></Form.Item></Space>
-      <Form.Item name="reason" label="发放原因" rules={[{ required: true, message: '请输入发放原因' }, { max: 200 }]}><Input.TextArea rows={4} placeholder="例如：售后补偿、活动奖励" showCount maxLength={200} /></Form.Item>
+      <Form.Item name="reason" label="发放原因" initialValue="活动发放" rules={[{ required: true, message: '请输入发放原因' }, { max: 200 }]}><Input.TextArea rows={4} placeholder="例如：活动发放、售后补偿" showCount maxLength={200} /></Form.Item>
       <Button type="primary" icon={<GiftOutlined />} loading={submitting} onClick={submit}>确认发放</Button>
       <Typography.Text type="secondary" style={{ marginLeft: 16 }}>发放后可在用户的小程序“我的优惠券”中查看。</Typography.Text>
     </Form>

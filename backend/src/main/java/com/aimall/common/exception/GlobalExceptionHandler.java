@@ -15,6 +15,7 @@ import com.aimall.coupon.exception.CouponTemplateStateConflictException;
 import com.aimall.coupon.exception.CouponGrantConflictException;
 import com.aimall.coupon.exception.CouponGrantRuleException;
 import com.aimall.coupon.exception.UserCouponNotFoundException;
+import com.aimall.coupon.exception.CouponShareException;
 import com.aimall.common.error.ErrorResponse;
 import com.aimall.common.error.FieldErrorDetail;
 import org.springframework.dao.DuplicateKeyException;
@@ -127,6 +128,12 @@ public class GlobalExceptionHandler {
     ResponseEntity<ErrorResponse> handleUserCouponNotFound(UserCouponNotFoundException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ErrorResponse.of("USER_COUPON_NOT_FOUND", e.getMessage()));
+    }
+
+    @ExceptionHandler(CouponShareException.class)
+    ResponseEntity<ErrorResponse> handleCouponShare(CouponShareException e) {
+        return ResponseEntity.status(e.isNotFound() ? HttpStatus.NOT_FOUND : HttpStatus.CONFLICT)
+                .body(ErrorResponse.of(e.isNotFound() ? "COUPON_SHARE_NOT_FOUND" : "COUPON_SHARE_CONFLICT", e.getMessage()));
     }
 
     @ExceptionHandler(CustomerNotFoundException.class)

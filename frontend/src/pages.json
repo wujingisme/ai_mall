@@ -31,6 +31,10 @@
     {
       "path": "pages/coupon/detail",
       "style": { "navigationBarTitleText": "优惠券详情" }
+    },
+    {
+      "path": "pages/coupon/claim",
+      "style": { "navigationBarTitleText": "领取优惠券" }
     }
   ],
   "globalStyle": {
