@@ -11,6 +11,9 @@ import com.aimall.cart.exception.CartProductUnavailableException;
 import com.aimall.coupon.exception.CouponTemplateNotFoundException;
 import com.aimall.coupon.exception.CouponTemplateRuleException;
 import com.aimall.coupon.exception.CouponTemplateStateConflictException;
+import com.aimall.coupon.exception.CouponGrantConflictException;
+import com.aimall.coupon.exception.CouponGrantRuleException;
+import com.aimall.coupon.exception.UserCouponNotFoundException;
 import com.aimall.common.error.ErrorResponse;
 import com.aimall.common.error.FieldErrorDetail;
 import org.springframework.dao.DuplicateKeyException;
@@ -106,6 +109,23 @@ public class GlobalExceptionHandler {
     ResponseEntity<ErrorResponse> handleCouponTemplateStateConflict(CouponTemplateStateConflictException e) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(ErrorResponse.of("COUPON_TEMPLATE_STATE_CONFLICT", e.getMessage()));
+    }
+
+    @ExceptionHandler(CouponGrantRuleException.class)
+    ResponseEntity<ErrorResponse> handleCouponGrantRule(CouponGrantRuleException e) {
+        return ResponseEntity.badRequest().body(ErrorResponse.of("COUPON_GRANT_RULE_INVALID", e.getMessage()));
+    }
+
+    @ExceptionHandler(CouponGrantConflictException.class)
+    ResponseEntity<ErrorResponse> handleCouponGrantConflict(CouponGrantConflictException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ErrorResponse.of("COUPON_GRANT_CONFLICT", e.getMessage()));
+    }
+
+    @ExceptionHandler(UserCouponNotFoundException.class)
+    ResponseEntity<ErrorResponse> handleUserCouponNotFound(UserCouponNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ErrorResponse.of("USER_COUPON_NOT_FOUND", e.getMessage()));
     }
 
     @ExceptionHandler({SkuConflictException.class, DuplicateKeyException.class})

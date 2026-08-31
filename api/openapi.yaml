@@ -13,7 +13,10 @@ servers:
 tags:
   - name: Auth
   - name: AdminAccounts
+  - name: AdminCustomers
   - name: CouponTemplates
+  - name: CouponGrants
+  - name: MyCoupons
   - name: Shop
   - name: Cart
   - name: Products
@@ -319,6 +322,73 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/CouponTemplateNotFound' }
         '409': { $ref: '#/components/responses/CouponTemplateStateConflict' }
+  /api/v1/admin/coupon-grants:
+    post:
+      tags: [CouponGrants]
+      summary: 管理员向指定商城用户人工发放优惠券
+      description: 仅启用且未过期的模板可发放；幂等键相同且请求内容一致时返回原发放结果。
+      operationId: createCouponGrant
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CouponGrantRequest' } } }
+      responses:
+        '201':
+          description: 发放成功，或返回同一幂等请求的既有成功结果
+          content: { application/json: { schema: { $ref: '#/components/schemas/CouponGrant' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/CouponTemplateNotFound' }
+        '409': { $ref: '#/components/responses/CouponGrantConflict' }
+  /api/v1/admin/customers:
+    get:
+      tags: [AdminCustomers]
+      summary: 搜索可接收优惠券的启用商城用户
+      description: 只返回后台选择用户所需的摘要，不返回微信 OpenID 等身份字段。
+      operationId: listAdminCustomers
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: pageSize, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { name: keyword, in: query, schema: { type: string, maxLength: 100 }, description: 按登录名或显示名称搜索 }
+      responses:
+        '200':
+          description: 查询成功
+          content: { application/json: { schema: { $ref: '#/components/schemas/CustomerPage' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/me/coupons:
+    get:
+      tags: [MyCoupons]
+      summary: 分页查询当前用户的优惠券
+      operationId: listMyCoupons
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: pageSize, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { name: status, in: query, schema: { type: string, enum: [AVAILABLE, USED, EXPIRED] } }
+      responses:
+        '200':
+          description: 查询成功
+          content: { application/json: { schema: { $ref: '#/components/schemas/UserCouponPage' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/v1/me/coupons/{id}:
+    get:
+      tags: [MyCoupons]
+      summary: 查询当前用户的优惠券详情
+      operationId: getMyCoupon
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, pattern: '^[1-9][0-9]*$' } }
+      responses:
+        '200':
+          description: 查询成功
+          content: { application/json: { schema: { $ref: '#/components/schemas/UserCoupon' } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/UserCouponNotFound' }
   /api/v1/products:
     get:
       tags: [Products]
@@ -567,6 +637,76 @@ components:
         pageSize: { type: integer }
         total: { type: integer, format: int64 }
         totalPages: { type: integer, format: int64 }
+    CouponGrantRequest:
+      type: object
+      additionalProperties: false
+      required: [templateId, targetUserId, quantity, reason, idempotencyKey]
+      properties:
+        templateId: { type: string, pattern: '^[1-9][0-9]*$' }
+        targetUserId: { type: string, pattern: '^[1-9][0-9]*$' }
+        quantity: { type: integer, minimum: 1, maximum: 100 }
+        reason: { type: string, minLength: 1, maxLength: 200 }
+        idempotencyKey: { type: string, minLength: 1, maxLength: 64, pattern: '^[A-Za-z0-9_-]+$' }
+    CustomerSummary:
+      type: object
+      required: [id, username, displayName]
+      properties:
+        id: { type: string }
+        username: { type: string }
+        displayName: { type: string }
+        avatarUrl: { type: string, nullable: true }
+    CustomerPage:
+      type: object
+      required: [items, page, pageSize, total, totalPages]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/CustomerSummary' } }
+        page: { type: integer }
+        pageSize: { type: integer }
+        total: { type: integer, format: int64 }
+        totalPages: { type: integer, format: int64 }
+    CouponGrant:
+      type: object
+      required: [id, templateId, targetUserId, operatorUserId, requestedQuantity, successQuantity, reason, idempotencyKey, status, createdAt]
+      properties:
+        id: { type: string }
+        templateId: { type: string }
+        targetUserId: { type: string }
+        operatorUserId: { type: string }
+        requestedQuantity: { type: integer }
+        successQuantity: { type: integer }
+        reason: { type: string }
+        idempotencyKey: { type: string }
+        status: { type: string, enum: [SUCCESS] }
+        createdAt: { type: string, format: date-time }
+    UserCouponStatus:
+      type: string
+      enum: [AVAILABLE, USED, EXPIRED]
+      description: EXPIRED 由 UNUSED 券的有效期实时派生，不作为独立数据库状态写入。
+    UserCoupon:
+      type: object
+      required: [id, templateId, name, couponType, minimumSpend, discountAmount, validFrom, validUntil, status, source, createdAt]
+      properties:
+        id: { type: string }
+        templateId: { type: string }
+        name: { type: string }
+        couponType: { type: string, enum: [FIXED_AMOUNT] }
+        minimumSpend: { $ref: '#/components/schemas/MoneyString' }
+        discountAmount: { $ref: '#/components/schemas/MoneyString' }
+        validFrom: { type: string, format: date-time }
+        validUntil: { type: string, format: date-time }
+        status: { $ref: '#/components/schemas/UserCouponStatus' }
+        source: { type: string, enum: [MANUAL] }
+        usedAt: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+    UserCouponPage:
+      type: object
+      required: [items, page, pageSize, total, totalPages]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/UserCoupon' } }
+        page: { type: integer }
+        pageSize: { type: integer }
+        total: { type: integer, format: int64 }
+        totalPages: { type: integer, format: int64 }
     ProductStatus:
       type: integer
       enum: [0, 1]
@@ -649,4 +789,10 @@ components:
       content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
     CouponTemplateStateConflict:
       description: 优惠券模板当前状态不允许该操作，或并发操作导致状态已经变化
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
+    CouponGrantConflict:
+      description: 模板不可发放、发行量或限领不足，或幂等键冲突
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
+    UserCouponNotFound:
+      description: 优惠券不存在或不属于当前用户
       content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }

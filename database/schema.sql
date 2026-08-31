@@ -98,3 +98,55 @@ CREATE TABLE IF NOT EXISTS coupon_template (
     (validity_type = 'DAYS_AFTER_RECEIPT' AND valid_from IS NULL AND valid_until IS NULL AND valid_days > 0)
   )
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='优惠券模板';
+
+CREATE TABLE IF NOT EXISTS coupon_grant (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '人工发放记录 ID',
+  template_id BIGINT UNSIGNED NOT NULL,
+  target_user_id BIGINT UNSIGNED NOT NULL,
+  operator_user_id BIGINT UNSIGNED NOT NULL,
+  requested_quantity INT UNSIGNED NOT NULL,
+  success_quantity INT UNSIGNED NOT NULL,
+  reason VARCHAR(200) NOT NULL,
+  idempotency_key VARCHAR(64) NOT NULL COMMENT '客户端生成的幂等键',
+  status VARCHAR(16) NOT NULL COMMENT '首版为 SUCCESS',
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_coupon_grant_idempotency (idempotency_key),
+  KEY idx_coupon_grant_target_created (target_user_id, created_at),
+  KEY idx_coupon_grant_template_created (template_id, created_at),
+  CONSTRAINT fk_coupon_grant_template FOREIGN KEY (template_id) REFERENCES coupon_template(id),
+  CONSTRAINT fk_coupon_grant_target FOREIGN KEY (target_user_id) REFERENCES mall_user(id),
+  CONSTRAINT fk_coupon_grant_operator FOREIGN KEY (operator_user_id) REFERENCES mall_user(id),
+  CONSTRAINT chk_coupon_grant_quantity CHECK (requested_quantity > 0 AND success_quantity BETWEEN 0 AND requested_quantity),
+  CONSTRAINT chk_coupon_grant_status CHECK (status = 'SUCCESS')
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='优惠券人工发放审计记录';
+
+CREATE TABLE IF NOT EXISTS user_coupon (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '用户优惠券实例 ID',
+  user_id BIGINT UNSIGNED NOT NULL,
+  template_id BIGINT UNSIGNED NOT NULL,
+  grant_id BIGINT UNSIGNED NOT NULL,
+  source VARCHAR(16) NOT NULL COMMENT '首版为 MANUAL',
+  name VARCHAR(100) NOT NULL COMMENT '发放时的模板名称快照',
+  coupon_type VARCHAR(32) NOT NULL,
+  minimum_spend DECIMAL(10, 2) UNSIGNED NOT NULL,
+  discount_amount DECIMAL(10, 2) UNSIGNED NOT NULL,
+  valid_from DATETIME(3) NOT NULL,
+  valid_until DATETIME(3) NOT NULL,
+  status VARCHAR(16) NOT NULL DEFAULT 'UNUSED' COMMENT 'UNUSED、USED；EXPIRED 由有效期实时派生',
+  used_at DATETIME(3) NULL,
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (id),
+  KEY idx_user_coupon_user_status_validity (user_id, status, valid_until),
+  KEY idx_user_coupon_template_user (template_id, user_id),
+  KEY idx_user_coupon_grant (grant_id),
+  CONSTRAINT fk_user_coupon_user FOREIGN KEY (user_id) REFERENCES mall_user(id),
+  CONSTRAINT fk_user_coupon_template FOREIGN KEY (template_id) REFERENCES coupon_template(id),
+  CONSTRAINT fk_user_coupon_grant FOREIGN KEY (grant_id) REFERENCES coupon_grant(id),
+  CONSTRAINT chk_user_coupon_source CHECK (source = 'MANUAL'),
+  CONSTRAINT chk_user_coupon_type CHECK (coupon_type = 'FIXED_AMOUNT'),
+  CONSTRAINT chk_user_coupon_amount CHECK (minimum_spend > 0 AND discount_amount > 0 AND discount_amount < minimum_spend),
+  CONSTRAINT chk_user_coupon_validity CHECK (valid_until > valid_from),
+  CONSTRAINT chk_user_coupon_status CHECK (status IN ('UNUSED', 'USED'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户优惠券实例';

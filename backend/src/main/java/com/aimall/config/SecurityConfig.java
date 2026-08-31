@@ -38,6 +38,10 @@ public class SecurityConfig {
                         // 优惠券模板属于运营配置，仅后台管理角色可查看和变更。
                         .requestMatchers("/api/v1/admin/coupon-templates/**")
                                 .hasAnyRole("SUPER_ADMIN", "ADMIN", "OPERATOR")
+                        .requestMatchers("/api/v1/admin/coupon-grants/**")
+                                .hasAnyRole("SUPER_ADMIN", "ADMIN", "OPERATOR")
+                        .requestMatchers("/api/v1/admin/customers/**")
+                                .hasAnyRole("SUPER_ADMIN", "ADMIN", "OPERATOR")
                         .requestMatchers("/api/v1/products/**").hasAnyRole("SUPER_ADMIN", "ADMIN", "OPERATOR")
                         .anyRequest().authenticated())
                 .exceptionHandling(errors -> errors.authenticationEntryPoint((request, response, exception) -> {
