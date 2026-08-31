@@ -35,6 +35,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/cart/**").authenticated()
                         // 创建后台账号属于高权限操作，只允许超级管理员调用。
                         .requestMatchers("/api/v1/admin/accounts/**").hasRole("SUPER_ADMIN")
+                        // 优惠券模板属于运营配置，仅后台管理角色可查看和变更。
+                        .requestMatchers("/api/v1/admin/coupon-templates/**")
+                                .hasAnyRole("SUPER_ADMIN", "ADMIN", "OPERATOR")
                         .requestMatchers("/api/v1/products/**").hasAnyRole("SUPER_ADMIN", "ADMIN", "OPERATOR")
                         .anyRequest().authenticated())
                 .exceptionHandling(errors -> errors.authenticationEntryPoint((request, response, exception) -> {

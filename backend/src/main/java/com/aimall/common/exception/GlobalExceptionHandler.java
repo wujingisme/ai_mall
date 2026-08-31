@@ -8,6 +8,9 @@ import com.aimall.auth.exception.RefreshTokenInvalidException;
 import com.aimall.auth.exception.WechatLoginException;
 import com.aimall.cart.exception.CartItemNotFoundException;
 import com.aimall.cart.exception.CartProductUnavailableException;
+import com.aimall.coupon.exception.CouponTemplateNotFoundException;
+import com.aimall.coupon.exception.CouponTemplateRuleException;
+import com.aimall.coupon.exception.CouponTemplateStateConflictException;
 import com.aimall.common.error.ErrorResponse;
 import com.aimall.common.error.FieldErrorDetail;
 import org.springframework.dao.DuplicateKeyException;
@@ -86,6 +89,23 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(CartProductUnavailableException.class)
     ResponseEntity<ErrorResponse> handleCartProductUnavailable(CartProductUnavailableException e) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ErrorResponse.of("CART_PRODUCT_UNAVAILABLE", e.getMessage()));
+    }
+
+    @ExceptionHandler(CouponTemplateNotFoundException.class)
+    ResponseEntity<ErrorResponse> handleCouponTemplateNotFound(CouponTemplateNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ErrorResponse.of("COUPON_TEMPLATE_NOT_FOUND", e.getMessage()));
+    }
+
+    @ExceptionHandler(CouponTemplateRuleException.class)
+    ResponseEntity<ErrorResponse> handleCouponTemplateRule(CouponTemplateRuleException e) {
+        return ResponseEntity.badRequest().body(ErrorResponse.of("COUPON_TEMPLATE_RULE_INVALID", e.getMessage()));
+    }
+
+    @ExceptionHandler(CouponTemplateStateConflictException.class)
+    ResponseEntity<ErrorResponse> handleCouponTemplateStateConflict(CouponTemplateStateConflictException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ErrorResponse.of("COUPON_TEMPLATE_STATE_CONFLICT", e.getMessage()));
     }
 
     @ExceptionHandler({SkuConflictException.class, DuplicateKeyException.class})

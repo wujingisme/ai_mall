@@ -13,6 +13,7 @@ servers:
 tags:
   - name: Auth
   - name: AdminAccounts
+  - name: CouponTemplates
   - name: Shop
   - name: Cart
   - name: Products
@@ -217,6 +218,107 @@ paths:
         '409':
           description: 用户名已存在
           content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
+  /api/v1/admin/coupon-templates:
+    get:
+      tags: [CouponTemplates]
+      summary: 分页查询优惠券模板
+      operationId: listCouponTemplates
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: pageSize, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { name: keyword, in: query, description: 按模板名称搜索, schema: { type: string, maxLength: 100 } }
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/CouponTemplateStatus' } }
+      responses:
+        '200':
+          description: 查询成功
+          content: { application/json: { schema: { $ref: '#/components/schemas/CouponTemplatePage' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [CouponTemplates]
+      summary: 创建优惠券模板草稿
+      operationId: createCouponTemplate
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CouponTemplateWriteRequest' } } }
+      responses:
+        '201':
+          description: 创建成功，初始状态为 DRAFT
+          content: { application/json: { schema: { $ref: '#/components/schemas/CouponTemplate' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/admin/coupon-templates/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, pattern: '^[1-9][0-9]*$' } }
+    get:
+      tags: [CouponTemplates]
+      summary: 查询优惠券模板详情
+      operationId: getCouponTemplate
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: 查询成功
+          content: { application/json: { schema: { $ref: '#/components/schemas/CouponTemplate' } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/CouponTemplateNotFound' }
+    put:
+      tags: [CouponTemplates]
+      summary: 完整修改优惠券模板草稿
+      description: 只有 DRAFT 可以修改；PUT 完整替换所有可编辑字段并清除另一种有效期模式的字段。
+      operationId: updateCouponTemplate
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CouponTemplateWriteRequest' } } }
+      responses:
+        '200':
+          description: 修改成功
+          content: { application/json: { schema: { $ref: '#/components/schemas/CouponTemplate' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/CouponTemplateNotFound' }
+        '409': { $ref: '#/components/responses/CouponTemplateStateConflict' }
+  /api/v1/admin/coupon-templates/{id}/activation:
+    post:
+      tags: [CouponTemplates]
+      summary: 启用优惠券模板
+      description: 只有 DRAFT 可以启用；重复启用已是 ACTIVE 的模板保持幂等。
+      operationId: activateCouponTemplate
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, pattern: '^[1-9][0-9]*$' } }
+      responses:
+        '200':
+          description: 启用成功
+          content: { application/json: { schema: { $ref: '#/components/schemas/CouponTemplate' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/CouponTemplateNotFound' }
+        '409': { $ref: '#/components/responses/CouponTemplateStateConflict' }
+  /api/v1/admin/coupon-templates/{id}/deactivation:
+    post:
+      tags: [CouponTemplates]
+      summary: 停用优惠券模板
+      description: 只有 ACTIVE 可以停用；重复停用已是 DISABLED 的模板保持幂等，且不会作废未来已经发给用户的券。
+      operationId: deactivateCouponTemplate
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, pattern: '^[1-9][0-9]*$' } }
+      responses:
+        '200':
+          description: 停用成功
+          content: { application/json: { schema: { $ref: '#/components/schemas/CouponTemplate' } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/CouponTemplateNotFound' }
+        '409': { $ref: '#/components/responses/CouponTemplateStateConflict' }
   /api/v1/products:
     get:
       tags: [Products]
@@ -418,6 +520,53 @@ components:
           type: array
           uniqueItems: true
           items: { type: string, enum: [CUSTOMER, SUPER_ADMIN, ADMIN, OPERATOR] }
+    MoneyString:
+      type: string
+      pattern: '^(0|[1-9][0-9]{0,7})(\.[0-9]{1,2})?$'
+      example: '20.00'
+      description: 十进制定点金额字符串，后端使用 BigDecimal 处理
+    CouponTemplateStatus:
+      type: string
+      enum: [DRAFT, ACTIVE, DISABLED]
+    CouponValidityType:
+      type: string
+      enum: [FIXED_RANGE, DAYS_AFTER_RECEIPT]
+    CouponTemplateWriteRequest:
+      type: object
+      required: [name, couponType, minimumSpend, discountAmount, totalQuantity, perUserLimit, validityType, shareEnabled]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100, example: 新人满减券 }
+        couponType: { type: string, enum: [FIXED_AMOUNT], description: 首版仅支持满减券 }
+        minimumSpend: { $ref: '#/components/schemas/MoneyString' }
+        discountAmount: { $ref: '#/components/schemas/MoneyString' }
+        totalQuantity: { type: integer, minimum: 1, maximum: 2147483647 }
+        perUserLimit: { type: integer, minimum: 1, maximum: 2147483647 }
+        validityType: { $ref: '#/components/schemas/CouponValidityType' }
+        validFrom: { type: string, format: date-time, nullable: true }
+        validUntil: { type: string, format: date-time, nullable: true }
+        validDays: { type: integer, minimum: 1, maximum: 3650, nullable: true }
+        shareEnabled: { type: boolean }
+      description: FIXED_RANGE 必须提供 validFrom/validUntil 且不提供 validDays；DAYS_AFTER_RECEIPT 规则相反。
+    CouponTemplate:
+      allOf:
+        - { $ref: '#/components/schemas/CouponTemplateWriteRequest' }
+        - type: object
+          required: [id, issuedQuantity, status, createdAt, updatedAt]
+          properties:
+            id: { type: string, pattern: '^[1-9][0-9]*$' }
+            issuedQuantity: { type: integer, minimum: 0 }
+            status: { $ref: '#/components/schemas/CouponTemplateStatus' }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
+    CouponTemplatePage:
+      type: object
+      required: [items, page, pageSize, total, totalPages]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/CouponTemplate' } }
+        page: { type: integer }
+        pageSize: { type: integer }
+        total: { type: integer, format: int64 }
+        totalPages: { type: integer, format: int64 }
     ProductStatus:
       type: integer
       enum: [0, 1]
@@ -494,4 +643,10 @@ components:
       description: 登录失败次数过多，账号暂时锁定
       headers:
         Retry-After: { schema: { type: integer }, description: 建议等待秒数 }
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
+    CouponTemplateNotFound:
+      description: 优惠券模板不存在
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
+    CouponTemplateStateConflict:
+      description: 优惠券模板当前状态不允许该操作，或并发操作导致状态已经变化
       content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }

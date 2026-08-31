@@ -68,3 +68,33 @@ CREATE TABLE IF NOT EXISTS cart_item (
   CONSTRAINT fk_cart_item_product FOREIGN KEY (product_id) REFERENCES product(id) ON DELETE CASCADE,
   CONSTRAINT chk_cart_item_quantity CHECK (quantity BETWEEN 1 AND 99)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户购物车商品';
+
+CREATE TABLE IF NOT EXISTS coupon_template (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '优惠券模板 ID',
+  name VARCHAR(100) NOT NULL COMMENT '优惠券名称',
+  coupon_type VARCHAR(32) NOT NULL COMMENT '首版仅支持 FIXED_AMOUNT',
+  minimum_spend DECIMAL(10, 2) UNSIGNED NOT NULL COMMENT '使用门槛金额',
+  discount_amount DECIMAL(10, 2) UNSIGNED NOT NULL COMMENT '优惠金额',
+  total_quantity INT UNSIGNED NOT NULL COMMENT '总发行量',
+  issued_quantity INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '已发行数量',
+  per_user_limit INT UNSIGNED NOT NULL COMMENT '每人限领数量',
+  validity_type VARCHAR(32) NOT NULL COMMENT 'FIXED_RANGE 或 DAYS_AFTER_RECEIPT',
+  valid_from DATETIME(3) NULL COMMENT '固定有效期开始时间',
+  valid_until DATETIME(3) NULL COMMENT '固定有效期结束时间',
+  valid_days INT UNSIGNED NULL COMMENT '领取后有效天数',
+  share_enabled TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否允许分享领取',
+  status VARCHAR(16) NOT NULL DEFAULT 'DRAFT' COMMENT 'DRAFT、ACTIVE、DISABLED',
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (id),
+  KEY idx_coupon_template_status_created (status, created_at),
+  CONSTRAINT chk_coupon_template_type CHECK (coupon_type = 'FIXED_AMOUNT'),
+  CONSTRAINT chk_coupon_template_status CHECK (status IN ('DRAFT', 'ACTIVE', 'DISABLED')),
+  CONSTRAINT chk_coupon_template_amount CHECK (minimum_spend > 0 AND discount_amount > 0 AND discount_amount < minimum_spend),
+  CONSTRAINT chk_coupon_template_quantity CHECK (total_quantity > 0 AND issued_quantity <= total_quantity AND per_user_limit BETWEEN 1 AND total_quantity),
+  CONSTRAINT chk_coupon_template_validity CHECK (
+    (validity_type = 'FIXED_RANGE' AND valid_from IS NOT NULL AND valid_until IS NOT NULL AND valid_until > valid_from AND valid_days IS NULL)
+    OR
+    (validity_type = 'DAYS_AFTER_RECEIPT' AND valid_from IS NULL AND valid_until IS NULL AND valid_days > 0)
+  )
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='优惠券模板';
