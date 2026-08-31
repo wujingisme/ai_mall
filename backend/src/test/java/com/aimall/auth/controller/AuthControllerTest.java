@@ -4,6 +4,7 @@ import com.aimall.auth.dto.LoginRequest;
 import com.aimall.auth.exception.AccountLockedException;
 import com.aimall.auth.exception.InvalidCredentialsException;
 import com.aimall.auth.exception.UsernameAlreadyExistsException;
+import com.aimall.auth.exception.WechatLoginException;
 import com.aimall.auth.dto.RefreshTokenRequest;
 import com.aimall.auth.service.AuthService;
 import com.aimall.auth.vo.CurrentUserResponse;
@@ -73,6 +74,50 @@ class AuthControllerTest {
         mvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
         verifyNoInteractions(service);
+    }
+
+    @Test
+    void wechatLoginReturnsContractResponse() throws Exception {
+        var user = new CurrentUserResponse("2", "wx_open-id", "微信用户", null, List.of("CUSTOMER"));
+        when(service.loginWithWechat("one-time-code")).thenReturn(new TokenResponse("Bearer", "jwt", 900,
+                "a-refresh-token-with-more-than-32-characters", 604800, user));
+
+        mvc.perform(post("/api/v1/auth/wechat/login").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"code\":\"one-time-code\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.tokenType").value("Bearer"))
+                .andExpect(jsonPath("$.user.id").value("2"))
+                .andExpect(jsonPath("$.user.roles[0]").value("CUSTOMER"));
+        verify(service).loginWithWechat("one-time-code");
+    }
+
+    @Test
+    void wechatLoginRejectsBlankCode() throws Exception {
+        mvc.perform(post("/api/v1/auth/wechat/login").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"code\":\" \"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    void wechatLoginFailureUsesStableErrorCode() throws Exception {
+        when(service.loginWithWechat("expired-code")).thenThrow(new WechatLoginException(
+                WechatLoginException.Failure.INVALID_CREDENTIAL, "微信登录凭证无效或已过期"));
+        mvc.perform(post("/api/v1/auth/wechat/login").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"code\":\"expired-code\"}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("WECHAT_LOGIN_FAILED"));
+    }
+
+    @Test
+    void wechatServiceFailureIsNotReportedAsInvalidUserCredential() throws Exception {
+        when(service.loginWithWechat("valid-code")).thenThrow(new WechatLoginException(
+                WechatLoginException.Failure.SERVICE_UNAVAILABLE, "暂时无法连接微信登录服务"));
+        mvc.perform(post("/api/v1/auth/wechat/login").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"code\":\"valid-code\"}"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("WECHAT_SERVICE_UNAVAILABLE"));
     }
 
     @Test

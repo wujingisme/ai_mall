@@ -18,7 +18,7 @@ This file is the shared, repository-local memory for all AI Mall tasks. Read it 
 
 - Backend: `http://localhost:8080`
 - Admin dev server: `http://localhost:5174`; Vite proxies `/api` to `http://localhost:8080`.
-- UniApp API destination is controlled by `frontend/.env.*`. As of 2026-08-30, `.env.development` contains duplicate `VITE_API_BASE_URL` declarations (remote first, local second, so the last value normally wins), while `.env.production` points to `http://124.221.241.24:8081`. Confirm the active build mode before deciding which database received a write.
+- UniApp API destination is controlled by `frontend/.env.*`. As of 2026-08-31, `.env.development` has one active `VITE_API_BASE_URL=http://127.0.0.1:8080` and several commented examples, while `.env.production` points to `http://124.221.241.24:8081`. Confirm the active build mode before deciding which database received a write.
 - A frontend message such as “无法连接服务器” normally means the backend is not listening on port 8080, backend startup failed (often database configuration), or the frontend was opened without its development proxy.
 
 ### Common commands
@@ -51,6 +51,8 @@ Backend startup requires a reachable MySQL database and the required environment
 - Public consumer product endpoints: `/api/v1/shop/products/**`.
 - Admin product endpoints: `/api/v1/products/**`; require `ADMIN` or `OPERATOR` authority.
 - Public auth endpoints include register, login, refresh, and logout.
+- 微信小程序登录使用 `POST /api/v1/auth/wechat/login`：前端只提交 `uni.login` 的一次性 code，后端使用环境变量中的 AppID/AppSecret 调用微信 code2Session，以 OpenID 创建或复用 CUSTOMER 用户，再签发商城自己的 JWT/refresh token。AppID 可保存在 `frontend/src/manifest.json`；AppSecret 严禁进入前端或 Git 仓库。
+- 微信 code2Session 适配层限长读取原始响应并用 Jackson 独立解析，不依赖外部 `Content-Type`；无效 code 映射为 401，上游不可用、未配置或非法响应映射为 503。日志只能记录脱敏的状态、异常类型或微信 errcode，不得记录 AppSecret、code、完整 URL、原始正文或外部 errmsg。
 - `/api/v1/auth/me` requires a valid Bearer access token.
 - Access tokens are signed JWTs and include a `roles` claim.
 - Refresh tokens are opaque, stored as hashes, rotated on refresh, and revoked on logout.
@@ -73,9 +75,11 @@ The React admin theme is configured in `admin/src/main.tsx`, with application CS
 
 - Before making any code, configuration, API, database, build, or workflow change, present the proposed design to the user first and wait for explicit approval. The proposal should identify the intended behavior, affected modules/files, API and data semantics, compatibility or migration impact, verification plan, and the viable options with each option's advantages, disadvantages, risks, and suitable use cases. State a recommendation and its rationale, then implement only after the user confirms. Read-only diagnosis and explanation may proceed without approval.
 - Choose implementations from explicit API and data semantics, not merely the shortest framework helper. Before coding, consider correctness, null/empty/absent states, failure paths, security, maintainability, and likely extension points.
+- Engineering priority is correctness and long-term design, not implementation convenience or line count. Before selecting a framework shortcut, explicitly evaluate maintainability, extensibility, observability, testability, protocol deviations, compatibility, and operational failure modes. For external services, treat status, headers, body, timeouts, malformed/non-standard responses, proxy behavior, sensitive logging, and future provider changes as first-class design concerns; isolate provider-specific adaptation instead of weakening application-wide behavior.
 - A full-form product edit is a full replacement of editable fields: optional fields submitted empty must be persisted as SQL `NULL`. Do not use an ORM helper that silently ignores `null` unless that selective-update behavior is intentionally part of the endpoint contract.
 - When a MyBatis-Plus lambda update wrapper is the appropriate design, construct it with `Wrappers.lambdaUpdate(Entity.class)` so the entity type is explicit and the style is consistent. This convention does not override choosing custom SQL or another persistence mechanism when that better matches the operation.
 - For material behavior changes, add regression coverage for normal updates, clearing an existing optional value, validation/conflicts, and relevant authorization paths.
+- User verification preference: after ordinary source-only edits, a quick compile/type check is allowed to catch syntax and type errors, but do not automatically perform lengthy test suites, full builds, dependency installation, or broad verification. Report exactly what was and was not checked. For authentication, authorization, payments, money calculations, database migrations, concurrency/data-integrity behavior, or other high-risk changes, explain any additional recommended verification first and let the user decide unless it was explicitly requested.
 
 - React admin routes are defined in `admin/src/App.tsx`.
 - Admin product CRUD UI is in `admin/src/pages/ProductsPage.tsx`.
@@ -86,22 +90,40 @@ The React admin theme is configured in `admin/src/main.tsx`, with application CS
 - Keep consumer product reads on `/shop/products`; do not expose admin CRUD endpoints for consumer use.
 - API shape changes must also update `api/openapi.yaml` and affected TypeScript types/clients.
 
+## Incremental delivery roadmap
+
+- Batch 1 — Real WeChat mini-program login: complete on 2026-08-31, including successful manual acceptance in Weixin DevTools with a real one-time code. The full `uni.login → code2Session → OpenID user create/reuse → mall JWT/refresh token` path works; secrets remain outside the repository.
+- Batch 2 — Coupon template management: not started.
+- Batch 3 — Manual issuance and consumer “My Coupons”: not started.
+- Batch 4 — Automatic new-WeChat-user coupon: not started.
+- Batch 5 — Order coupon locking/redemption/refund behavior: not started and should wait for the order module.
+- Optional Batch 1.1 — dev-profile-only simulated WeChat login: not started; only needed if real WeChat credentials are unavailable during local development.
+
 ## Verification baseline
 
-As of 2026-08-29:
+As of 2026-08-31:
 
 - `admin`: `npm run build` succeeds. Vite reports a non-blocking large-chunk warning (the main JS bundle is over 500 kB).
-- `backend`: Maven test suite succeeds with 15 tests when using the repository-local Maven cache command above.
+- `frontend`: `npm run type-check` and `npm run build:mp-weixin` succeed.
+- `backend`: Maven test suite succeeds with 21 tests when using the repository-local Maven cache command above.
 
 ## Known follow-ups
 
 - Admin bundle can be reduced later with route-level dynamic imports/manual chunks.
 - When diagnosing login connectivity, first check whether port 8080 is listening and inspect backend startup logs before changing frontend code.
-- Clean up the duplicate UniApp development API environment values and define an explicit per-target strategy: H5 development can use the Vite `/api` proxy, while a real device/emulator must use an address reachable from that device. `localhost` on a device is not the development PC.
+- Define an explicit UniApp per-target API strategy: H5 development can use the Vite `/api` proxy, Weixin DevTools can reach `127.0.0.1`, while a real device must use an HTTPS request domain configured in the WeChat platform; `localhost` on a device is not the development PC.
 - Do not assume a successful UI route guard secures an API; authorization must remain enforced by Spring Security.
 
 ## Change log
 
+- 2026-08-31 — `batch 1/manual acceptance`: successfully completed real WeChat mini-program login in Weixin DevTools after environment inheritance and non-standard Content-Type handling were corrected. Batch 1 is complete; Batch 2 coupon template management is next. Manual runtime acceptance only; no additional automated verification was run.
+- 2026-08-31 — `workspace/verification workflow`: refined the user's preference to allow quick compilation/type checks while avoiding time-consuming test suites, full builds, dependency installation, or broad verification unless requested. Documentation-only workflow update.
+- 2026-08-31 — `backend/auth/wechat compile fix`: corrected checked-`IOException` handling across HTTP status/body reads and Jackson byte-array parsing, keeping these failures inside the sanitized provider boundary without changing API behavior. Verified with a quick `mvn -DskipTests compile`; compilation succeeds. Tests were not run.
+- 2026-08-31 — `backend/api/auth/wechat`: reviewed and hardened the WeChat integration after a real `UnknownContentTypeException`: replaced Content-Type-dependent automatic deserialization with a provider-local adapter that reads at most 16 KiB plus an overflow byte, parses raw bytes with Jackson, validates HTTP status/Wechat errcode/OpenID, classifies invalid credentials separately from configuration/upstream failures, and prevents external messages or sensitive request data from entering logs or client responses. Updated exception mapping, OpenAPI, auth contract, and controller regression coverage. The final implementation compiles; tests were not run per user verification preference.
+- 2026-08-31 — `workspace/engineering principles`: strengthened the project rule that convenience and shorter code must not drive implementation choices; future designs must prioritize correctness, maintainability, extensibility, observability, testability, compatibility, and explicit external-service failure handling. Documentation-only change; intentionally not verified per user preference.
+- 2026-08-31 — `backend/auth diagnostics`: added sanitized WeChat code2Session failure logging that distinguishes HTTP status, network/root-cause type, and response-processing type without logging AppSecret, one-time code, exception messages, or full request URLs. Behavior and client-facing error remain unchanged. Intentionally not tested or built per user verification preference.
+- 2026-08-31 — `workspace/verification workflow`: recorded the user's preference to skip automatic tests/builds for ordinary source-only edits, while requiring an explicit verification recommendation for security-, money-, database-, and data-integrity-sensitive changes. Documentation-only change; intentionally not verified per user preference.
+- 2026-08-31 — `batch 1/backend/frontend/api/auth`: completed the repository-side real WeChat mini-program login batch by documenting `/api/v1/auth/wechat/login` and `WechatLoginRequest` in OpenAPI, correcting the auth contract, preserving safe post-login redirects for WeChat login, and adding controller/service coverage for success, blank/invalid code handling, first-user creation, returning-user reuse, and disabled users. No AppSecret was added to the repository. Verified with 21 backend tests, frontend type-check, and the WeChat mini-program production build; real code2Session acceptance remains a local Weixin DevTools step with developer-owned credentials.
 - 2026-08-31 — `backend/MyBatis-Plus convention`: standardized appropriate lambda update wrapper construction on `Wrappers.lambdaUpdate(Entity.class)` with explicit entity typing; updated product replacement accordingly. Verified with all 15 Maven tests passing.
 - 2026-08-31 — `backend/product`: changed full-form product updates from `updateById()` to an explicit `LambdaUpdateWrapper` covering all seven editable fields, allowing empty image URLs and descriptions to clear existing database values as SQL `NULL`; added a service regression test that asserts the complete update set and both null parameters. Verified with all 15 Maven tests passing.
 - 2026-08-31 — `workspace/change workflow`: recorded the user requirement that implementation proposals, including alternatives, advantages, disadvantages, risks, recommendation rationale, and verification, must be reviewed and explicitly approved before any code, configuration, API, database, build, or workflow modification. Documentation-only change; reviewed in `PROJECT_MEMORY.md`.

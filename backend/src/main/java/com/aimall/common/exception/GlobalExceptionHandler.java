@@ -23,8 +23,24 @@ import java.util.List;
 public class GlobalExceptionHandler {
     @ExceptionHandler(WechatLoginException.class)
     ResponseEntity<ErrorResponse> handleWechatLogin(WechatLoginException e) {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(ErrorResponse.of("WECHAT_LOGIN_FAILED", e.getMessage()));
+        HttpStatus status;
+        String code;
+        switch (e.getFailure()) {
+            case INVALID_CREDENTIAL -> {
+                status = HttpStatus.UNAUTHORIZED;
+                code = "WECHAT_LOGIN_FAILED";
+            }
+            case SERVICE_UNAVAILABLE -> {
+                status = HttpStatus.SERVICE_UNAVAILABLE;
+                code = "WECHAT_SERVICE_UNAVAILABLE";
+            }
+            case NOT_CONFIGURED -> {
+                status = HttpStatus.SERVICE_UNAVAILABLE;
+                code = "WECHAT_LOGIN_NOT_CONFIGURED";
+            }
+            default -> throw new IllegalStateException("未知微信登录失败类型");
+        }
+        return ResponseEntity.status(status).body(ErrorResponse.of(code, e.getMessage()));
     }
     @ExceptionHandler(RefreshTokenInvalidException.class)
     ResponseEntity<ErrorResponse> handleRefreshTokenInvalid(RefreshTokenInvalidException e) {

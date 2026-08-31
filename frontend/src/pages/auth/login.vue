@@ -31,6 +31,13 @@ onShow(async () => {
 
 const canSubmit = computed(() => account.value.trim().length > 0 && password.value.length >= 6)
 
+function navigateAfterLogin() {
+  const target = redirectPath.value || '/pages/profile/index'
+  const tabPages = ['/pages/product/list', '/pages/cart/index', '/pages/profile/index']
+  if (tabPages.includes(target.split('?')[0])) uni.switchTab({ url: target })
+  else uni.redirectTo({ url: target })
+}
+
 function toggleRemember() {
   remember.value = !remember.value
 }
@@ -55,10 +62,7 @@ async function submit() {
     })
     saveAuthSession(session, remember.value)
     uni.showToast({ title: '登录成功', icon: 'success' })
-    const target = redirectPath.value || '/pages/profile/index'
-    const tabPages = ['/pages/product/list', '/pages/cart/index', '/pages/profile/index']
-    if (tabPages.includes(target.split('?')[0])) uni.switchTab({ url: target })
-    else uni.redirectTo({ url: target })
+    navigateAfterLogin()
   } catch {
     // 请求工具已经展示后端错误信息，这里只负责恢复按钮状态。
   } finally {
@@ -74,7 +78,7 @@ async function loginWithWechat() {
     const session = await authApi.wechatLogin({ code: loginResult.code })
     saveAuthSession(session, true)
     uni.showToast({ title: '微信登录成功', icon: 'success' })
-    uni.switchTab({ url: '/pages/product/list' })
+    navigateAfterLogin()
   } catch (error) {
     if (error instanceof Error && error.message) uni.showToast({ title: error.message, icon: 'none' })
   } finally {

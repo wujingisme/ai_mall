@@ -139,6 +139,28 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '423': { $ref: '#/components/responses/AccountLocked' }
+  /api/v1/auth/wechat/login:
+    post:
+      tags: [Auth]
+      summary: 微信小程序登录
+      description: 使用 wx.login/uni.login 获取的一次性 code 换取商城会话；首次登录会创建 CUSTOMER 用户。
+      operationId: loginWithWechat
+      security: []
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/WechatLoginRequest' } } }
+      responses:
+        '200':
+          description: 登录成功
+          content: { application/json: { schema: { $ref: '#/components/schemas/TokenResponse' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401':
+          description: 微信临时登录凭证无效、过期或兑换失败
+          content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '503':
+          description: 微信登录尚未正确配置、微信服务不可用或响应无法安全解析
+          content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
   /api/v1/auth/refresh:
     post:
       tags: [Auth]
@@ -357,6 +379,15 @@ components:
       properties:
         username: { type: string, minLength: 3, maxLength: 64, example: admin }
         password: { type: string, minLength: 6, maxLength: 72, format: password, example: '123456', description: 至少 6 位，不限制字符类型 }
+    WechatLoginRequest:
+      type: object
+      additionalProperties: false
+      required: [code]
+      properties:
+        code:
+          type: string
+          minLength: 1
+          description: wx.login/uni.login 返回的一次性临时登录凭证；不能缓存或重复使用
     RefreshTokenRequest:
       type: object
       additionalProperties: false
