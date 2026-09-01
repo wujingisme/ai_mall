@@ -130,6 +130,7 @@ As of 2026-08-31:
 ## Change log
 
 - 2026-08-31 — `admin/environment-config`: separated Admin development and production API origins into `.env.development` and `.env.production`; centralized Axios base URL construction and made the Vite development proxy read the same configuration. Quick TypeScript check passed; no dependencies installed.
+- 2026-08-31 — `backend/error-observability`: added server-side stack-trace logging for previously hidden unexpected exceptions while keeping the client response generic and unchanged; logs record exception types and the stack trace only on the server. Quick Maven compile passed; no full test suite or runtime verification was run.
 
 - 2026-08-31 — `coupon/share-claim`: added secure random share tokens (hash-only persistence), public preview, authenticated claim, creator/self-claim protection, per-share uniqueness, template inventory/limit checks, migration SQL, and mini-program share/claim pages; updated OpenAPI, design status, and learning notes. Quick backend compile plus frontend/admin type-check passed; no database migration, runtime API, or two-account WeChat acceptance was run.
 - 2026-08-31 — `admin/coupon-grants/usability`: changed the per-user-limit conflict message to plain Chinese and defaulted the manual-grant reason to “活动发放” while keeping it editable. Quick Maven compile and admin type-check passed.

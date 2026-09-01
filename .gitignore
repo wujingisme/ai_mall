@@ -20,3 +20,4 @@ admin/*.tsbuildinfo
 .DS_Store
 .m2/
 Thumbs.db
+backup

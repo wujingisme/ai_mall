@@ -24,11 +24,15 @@ import org.springframework.validation.BindException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.time.OffsetDateTime;
 import java.util.List;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
     @ExceptionHandler(WechatLoginException.class)
     ResponseEntity<ErrorResponse> handleWechatLogin(WechatLoginException e) {
         HttpStatus status;
@@ -162,6 +166,12 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     ResponseEntity<ErrorResponse> handleUnexpected(Exception e) {
+        Throwable rootCause = e;
+        while (rootCause.getCause() != null && rootCause.getCause() != rootCause) {
+            rootCause = rootCause.getCause();
+        }
+        log.error("未处理请求异常: exceptionType={}, rootCauseType={}",
+                e.getClass().getSimpleName(), rootCause.getClass().getSimpleName(), e);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ErrorResponse.of("INTERNAL_ERROR", "服务器内部错误"));
     }
