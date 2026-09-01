@@ -45,6 +45,13 @@ npm run dev:h5
 
 Backend startup requires a reachable MySQL database and the required environment/config values. Never record real database passwords or JWT secrets here.
 
+## Deployment automation
+
+- `.github/workflows/deploy-backend.yml` triggers on pushes to `main` that change `backend/`, builds/tests the Spring Boot JAR with Java 17, uploads it through SSH, and invokes the deployment script. It also supports `workflow_dispatch` for a manual run and serializes production deployments.
+- `deploy/mall-backend-deploy.sh` is uploaded to `/www/wwwroot/mymall/backend/deploy/`; it keeps `backend.env` on the server, runs the JAR as `www`, keeps timestamped JAR backups, performs a product-list health check, and rolls back the previous JAR if startup fails. It assumes the current OpenCloudOS JDK path `/www/server/java/jdk-17.0.8/bin/java` unless `JAVA_BIN` is changed.
+- The workflow requires GitHub Actions secrets `DEPLOY_HOST`, `DEPLOY_PORT`, `DEPLOY_USER`, `DEPLOY_PATH`, `DEPLOY_SSH_KEY`, and `DEPLOY_KNOWN_HOSTS`. No database password, JWT secret, WeChat AppSecret, or server environment file belongs in GitHub.
+- One-time server preparation and the exact GitHub setup are documented in `公共知识/GitHub Actions自动部署.md`. The automation is repository-ready but is not active until the server preparation and GitHub secrets are completed; frontend/admin and WeChat publishing are outside this workflow.
+
 ## API and authentication
 
 - Base API prefix: `/api/v1`.
@@ -58,6 +65,7 @@ Backend startup requires a reachable MySQL database and the required environment
 - Refresh tokens are opaque, stored as hashes, rotated on refresh, and revoked on logout.
 - Admin Axios logic lives in `admin/src/utils/request.ts`; session storage lives in `admin/src/utils/auth.ts`.
 - Admin API origin is configured by `admin/.env.development` and `admin/.env.production`; Vite development proxies `/api` to the configured development origin, while production uses the configured server origin and its `/api` reverse proxy.
+- Learning and deployment reference documents are stored under `公共知识/` by default.
 - UniApp request/session logic lives under `frontend/src/utils/`.
 - Consumer startup now opens the public product home directly. Successful login defaults to home unless a safe internal redirect was supplied; public home/detail/profile routes remain browsable without login, while cart navigation requires a session and backend authorization remains authoritative.
 - Frontend navigation policy is centralized in `frontend/src/utils/navigation.ts`. Session freshness and concurrent `/auth/me` deduplication are centralized in `frontend/src/utils/session-validation.ts`; the default runtime validation window is 60 seconds. Background session validation can clear stale credentials without forcing a public page to jump to login.
@@ -128,6 +136,14 @@ As of 2026-08-31:
 - Do not assume a successful UI route guard secures an API; authorization must remain enforced by Spring Security.
 
 ## Change log
+
+- 2026-09-01 — `deployment automation`: added a GitHub Actions backend deployment workflow and a server-side JAR deployment script with SSH upload, backup, health check, and rollback; added `公共知识/GitHub Actions自动部署.md` with one-time server preparation, SSH secrets, trigger, verification, and rollback steps. Static repository checks only; no server restart or GitHub Actions run was performed.
+
+- 2026-09-01 — `公共知识文档`: 删除 `公共知识/本地与线上部署排错.md` 中多余空行，保留命令、分类和安全说明；未做额外验证。
+
+- 2026-09-01 — `公共知识文档`: 新增 `公共知识/本地与线上部署排错.md`，按本地 PowerShell、服务器 Linux、配置、打包、日志和端口分类整理常用命令，并补充换行符、jar 打包和危险命令说明；未记录真实凭据，未做额外验证。
+
+- 2026-09-01 — `公共知识文档`: 新增简洁的 `公共知识/Navicat连接线上数据库.md`，记录通过 SSH 隧道连接线上 MySQL 的命令、Navicat 参数和常见错误；未记录任何真实凭据，文档未做额外验证。
 
 - 2026-08-31 — `admin/environment-config`: separated Admin development and production API origins into `.env.development` and `.env.production`; centralized Axios base URL construction and made the Vite development proxy read the same configuration. Quick TypeScript check passed; no dependencies installed.
 - 2026-08-31 — `backend/error-observability`: added server-side stack-trace logging for previously hidden unexpected exceptions while keeping the client response generic and unchanged; logs record exception types and the stack trace only on the server. Quick Maven compile passed; no full test suite or runtime verification was run.
