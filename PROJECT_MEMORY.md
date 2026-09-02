@@ -1,6 +1,6 @@
 # AI Mall shared project memory
 
-Last updated: 2026-08-31
+Last updated: 2026-09-02
 
 This file is the shared, repository-local memory for all AI Mall tasks. Read it first when starting work in this repository and update it after material changes. Source code and `api/openapi.yaml` remain the final authority if anything here is stale.
 
@@ -84,6 +84,7 @@ The React admin theme is configured in `admin/src/main.tsx`, with application CS
 
 ## Important implementation notes
 
+- User background and explanation style: the user is primarily a frontend developer and is not yet familiar with databases, backend development, or operations. When discussing MySQL, Java/Spring, Linux, servers, deployment, Nginx, BaoTa, permissions, processes, ports, or similar topics, explain each new term in plain frontend-oriented language; state what the step is for, exactly where to perform it, what successful output looks like, and whether it can affect local or production services. Do not provide unexplained operations commands or assume backend/operations knowledge.
 - Before making any code, configuration, API, database, build, or workflow change, present the proposed design to the user first and wait for explicit approval. The proposal should identify the intended behavior, affected modules/files, API and data semantics, compatibility or migration impact, verification plan, and the viable options with each option's advantages, disadvantages, risks, and suitable use cases. State a recommendation and its rationale, then implement only after the user confirms. Read-only diagnosis and explanation may proceed without approval.
 - User confirmation workflow: after every new request that would create, modify, delete, move, install, configure, or execute something, first briefly restate the understood goal and intended action, then stop and wait for explicit confirmation such as “是的”, “确认”, or “可以”. Do not start the action merely because the request appears clear. Read-only explanations that require no action may be answered directly.
 - Choose implementations from explicit API and data semantics, not merely the shortest framework helper. Before coding, consider correctness, null/empty/absent states, failure paths, security, maintainability, and likely extension points.
@@ -136,6 +137,10 @@ As of 2026-08-31:
 - Do not assume a successful UI route guard secures an API; authorization must remain enforced by Spring Security.
 
 ## Change log
+
+- 2026-09-02 — `workspace/communication preference`: recorded that database, backend, and operations topics must be explained clearly from a frontend developer's perspective, including terminology, purpose, execution location, expected results, and operational risk. Documentation-only change; no runtime verification was needed.
+
+- 2026-09-01 — `deployment documentation`: expanded `公共知识/GitHub Actions自动部署.md` into a click-by-click, command-by-command guide with expected outputs, success/failure checks, rollback, non-uploaded content, and the standard format for future `公共知识` documents. Documentation-only change; no deployment or server operation was run.
 
 - 2026-09-01 — `deployment automation`: added a GitHub Actions backend deployment workflow and a server-side JAR deployment script with SSH upload, backup, health check, and rollback; added `公共知识/GitHub Actions自动部署.md` with one-time server preparation, SSH secrets, trigger, verification, and rollback steps. Static repository checks only; no server restart or GitHub Actions run was performed.
 
