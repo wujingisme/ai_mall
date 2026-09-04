@@ -50,7 +50,9 @@ public class ProductService {
     @Transactional
     /** 完整替换商品；显式 set 允许 PUT 中的 null 清除旧图片和描述。 */
     public ProductDetailResponse update(Long id, ProductWriteRequest request) {
-        Product product = requireProduct(id);
+        // 先锁商品行再检查 reserved_stock，避免下单线程在检查之后并发增加预留导致只能收到数据库 500。
+        Product product = productMapper.selectForUpdate(id);
+        if (product == null) throw new ProductNotFoundException(id);
         ensureSkuAvailable(request.sku().trim(), id);
         int reservedStock = availableReservedStock(product);
         if (request.stock() < reservedStock) {
@@ -73,9 +75,18 @@ public class ProductService {
     }
 
     @Transactional
-    /** 删除前先查询，确保不存在时返回 404 而不是静默成功。 */
+    /**
+     * 删除前锁住商品行，确保不存在时返回 404，也防止下单线程在库存检查后插入新预留。
+     * 有预留库存的商品必须保留到订单取消或完成取货后再删除。
+     */
     public void delete(Long id) {
-        requireProduct(id);
+        Product product = productMapper.selectForUpdate(id);
+        if (product == null) throw new ProductNotFoundException(id);
+        int reservedStock = availableReservedStock(product);
+        if (reservedStock > 0) {
+            // order_item 的 product_id 会在删除时 SET NULL；如果删除仍允许通过，后续取消订单将无法释放库存。
+            throw new ProductStockConflictException(id, reservedStock);
+        }
         productMapper.deleteById(id);
     }
 

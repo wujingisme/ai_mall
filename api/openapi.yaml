@@ -146,6 +146,25 @@ paths:
           content: { application/json: { schema: { $ref: '#/components/schemas/OrderDetail' } } }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/me/orders/{id}/cancellation:
+    post:
+      tags: [Orders]
+      summary: 取消我的订单
+      operationId: cancelMyOrder
+      description: 仅允许取消待取货订单；取消和释放预留库存位于同一事务，重复取消返回当前订单快照。
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, pattern: '^[1-9][0-9]*$' }
+      responses:
+        '200':
+          description: 取消成功或重复取消
+          content: { application/json: { schema: { $ref: '#/components/schemas/OrderDetail' } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
   /api/v1/shop/products:
     get:
       tags: [Shop]

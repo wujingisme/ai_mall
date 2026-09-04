@@ -59,6 +59,19 @@ public class OrderController {
         return orderService.create(userId(authentication), request);
     }
 
+    /**
+     * 取消当前用户的一笔待取货订单。
+     *
+     * <p>请求体不接收新状态或库存数量，Service 会以订单明细快照为准释放预留库存；
+     * 已取消订单重复调用保持幂等，已取货订单返回状态冲突。</p>
+     */
+    @PostMapping("/me/orders/{id}/cancellation")
+    public OrderDetailResponse cancel(
+            Authentication authentication,
+            @PathVariable @Positive Long id) {
+        return orderService.cancel(userId(authentication), id);
+    }
+
     /** 查询当前用户订单摘要分页；status 由 Service 按白名单校验。 */
     @GetMapping("/me/orders")
     public OrderPageResponse list(

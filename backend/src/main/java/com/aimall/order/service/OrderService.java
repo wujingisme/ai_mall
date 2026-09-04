@@ -11,8 +11,10 @@ import com.aimall.order.entity.MallOrder;
 import com.aimall.order.entity.OrderItem;
 import com.aimall.order.exception.OrderNotFoundException;
 import com.aimall.order.exception.OrderIdempotencyConflictException;
+import com.aimall.order.exception.OrderInventoryConflictException;
 import com.aimall.order.exception.OrderRuleException;
 import com.aimall.order.exception.OrderStockInsufficientException;
+import com.aimall.order.exception.OrderStateConflictException;
 import com.aimall.order.mapper.MallOrderMapper;
 import com.aimall.order.mapper.OrderItemMapper;
 import com.aimall.order.vo.OrderDetailResponse;
@@ -276,6 +278,67 @@ public class OrderService {
                     .eq(CartItem::getProductId, productId));
         }
         return new OrderCreateResponse(toDetail(order, snapshots), pickupCode, false);
+    }
+
+    /**
+     * 取消当前用户的订单并释放商品预留库存。
+     *
+     * <p>取消和创建使用相反方向的库存操作，但仍然共享同一个事务边界：先锁订单，
+     * 再按商品 ID 升序锁商品并减少 reserved_stock，最后用旧状态条件把订单改成 CANCELLED。
+     * 任一步失败都会回滚，不能留下“订单已取消但库存没有释放”的状态。</p>
+     *
+     * <p>已取消订单重复调用直接返回当前快照，不再次释放库存；已取货订单不能取消，
+     * 因为它已经完成线下交付，后续售后不属于本阶段。</p>
+     */
+    @Transactional
+    public OrderDetailResponse cancel(Long userId, Long orderId) {
+        // 订单查询同时带用户 ID，锁住的也只能是当前用户自己的订单，避免越权和竞态。
+        MallOrder order = orderMapper.selectForUpdate(userId, orderId);
+        if (order == null) {
+            throw new OrderNotFoundException(orderId);
+        }
+
+        List<OrderItem> items = orderItemMapper.selectList(new LambdaQueryWrapper<OrderItem>()
+                .eq(OrderItem::getOrderId, orderId)
+                .orderByAsc(OrderItem::getProductId)
+                .orderByAsc(OrderItem::getId));
+        if (STATUS_CANCELLED.equals(order.getStatus())) {
+            // 幂等取消不再接触商品表，防止重复请求重复扣减预留库存。
+            return toDetail(order, items);
+        }
+        if (!STATUS_PENDING_PICKUP.equals(order.getStatus())) {
+            throw new OrderStateConflictException("当前订单状态不能取消");
+        }
+
+        // 聚合相同商品的明细数量，确保每个商品只锁一次、只释放一次。
+        Map<Long, Integer> releaseQuantities = new LinkedHashMap<>();
+        for (OrderItem item : items) {
+            if (item.getProductId() == null || item.getQuantity() == null || item.getQuantity() <= 0) {
+                throw new OrderInventoryConflictException("订单明细缺少有效商品库存信息");
+            }
+            releaseQuantities.merge(item.getProductId(), item.getQuantity(), Integer::sum);
+        }
+        for (Long productId : releaseQuantities.keySet().stream().sorted().toList()) {
+            Product product = productMapper.selectForUpdate(productId);
+            if (product == null) {
+                // 新订单禁止删除有预留库存的商品；这里主要保护历史脏数据，宁可回滚也不静默丢库存。
+                throw new OrderInventoryConflictException("订单商品已不存在，无法安全释放库存");
+            }
+            int quantity = releaseQuantities.get(productId);
+            if (productMapper.releaseReservedStock(productId, quantity) != 1) {
+                throw new OrderInventoryConflictException("商品预留库存数量不一致，取消已回滚");
+            }
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        if (orderMapper.cancelPending(userId, orderId, now, now) != 1) {
+            // 订单行已锁定时通常不会发生；保留条件失败处理，作为数据库并发兜底。
+            throw new OrderStateConflictException("订单状态已变化，请刷新后重试");
+        }
+        order.setStatus(STATUS_CANCELLED);
+        order.setCancelledAt(now);
+        order.setUpdatedAt(now);
+        return toDetail(order, items);
     }
 
     /** 查询当前用户的订单摘要分页；订单状态筛选值由后端白名单校验。 */

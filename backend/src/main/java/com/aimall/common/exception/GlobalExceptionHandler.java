@@ -18,8 +18,10 @@ import com.aimall.coupon.exception.UserCouponNotFoundException;
 import com.aimall.coupon.exception.CouponShareException;
 import com.aimall.order.exception.OrderNotFoundException;
 import com.aimall.order.exception.OrderIdempotencyConflictException;
+import com.aimall.order.exception.OrderInventoryConflictException;
 import com.aimall.order.exception.OrderRuleException;
 import com.aimall.order.exception.OrderStockInsufficientException;
+import com.aimall.order.exception.OrderStateConflictException;
 import com.aimall.common.error.ErrorResponse;
 import com.aimall.common.error.FieldErrorDetail;
 import org.springframework.dao.DuplicateKeyException;
@@ -179,6 +181,20 @@ public class GlobalExceptionHandler {
     ResponseEntity<ErrorResponse> handleOrderIdempotencyConflict(OrderIdempotencyConflictException e) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(ErrorResponse.of("ORDER_IDEMPOTENCY_CONFLICT", e.getMessage()));
+    }
+
+    /** 订单已经取货、取消或处于未知状态时，拒绝不合法的状态转换。 */
+    @ExceptionHandler(OrderStateConflictException.class)
+    ResponseEntity<ErrorResponse> handleOrderStateConflict(OrderStateConflictException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ErrorResponse.of("ORDER_STATE_CONFLICT", e.getMessage()));
+    }
+
+    /** 释放预留库存时发现商品数据不完整或数量不一致，阻止订单进入半取消状态。 */
+    @ExceptionHandler(OrderInventoryConflictException.class)
+    ResponseEntity<ErrorResponse> handleOrderInventoryConflict(OrderInventoryConflictException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ErrorResponse.of("ORDER_INVENTORY_CONFLICT", e.getMessage()));
     }
 
     @ExceptionHandler(CustomerNotFoundException.class)
