@@ -41,6 +41,8 @@ public class ProductService {
         ensureSkuAvailable(request.sku().trim(), null);
         Product product = new Product();
         apply(product, request);
+        // 新商品还没有任何订单占用，显式写 0 让实体语义和数据库默认值保持一致。
+        product.setReservedStock(0);
         productMapper.insert(product);
         return toDetail(requireProduct(product.getId()));
     }
@@ -50,6 +52,11 @@ public class ProductService {
     public ProductDetailResponse update(Long id, ProductWriteRequest request) {
         Product product = requireProduct(id);
         ensureSkuAvailable(request.sku().trim(), id);
+        int reservedStock = availableReservedStock(product);
+        if (request.stock() < reservedStock) {
+            // stock 是总库存；把它改到 reserved_stock 以下会破坏“可售库存 = 总库存 - 预留”的不变量。
+            throw new ProductStockConflictException(id, reservedStock);
+        }
         apply(product, request);
         // PUT 接收完整商品表单：所有可编辑字段都必须覆盖，null 表示主动清空可选字段。
         // 显式 set 避免 updateById 默认忽略 null，从而保证图片和描述可以被清除。
@@ -91,6 +98,11 @@ public class ProductService {
         p.setSku(r.sku().trim()); p.setName(r.name().trim()); p.setPrice(r.price());
         p.setStock(r.stock()); p.setStatus(r.status()); p.setImageUrl(trimToNull(r.imageUrl()));
         p.setDescription(trimToNull(r.description()));
+    }
+
+    /** 历史数据在新增字段前可能读到 null，统一按没有预留库存兼容。 */
+    private int availableReservedStock(Product product) {
+        return product.getReservedStock() == null ? 0 : product.getReservedStock();
     }
 
     private String trimToNull(String value) { return StringUtils.hasText(value) ? value.trim() : null; }

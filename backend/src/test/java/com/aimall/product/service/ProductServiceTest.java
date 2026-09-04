@@ -1,5 +1,6 @@
 package com.aimall.product.service;
 
+import com.aimall.common.exception.ProductStockConflictException;
 import com.aimall.product.dto.ProductWriteRequest;
 import com.aimall.product.entity.Product;
 import com.aimall.product.mapper.ProductMapper;
@@ -55,6 +56,20 @@ class ProductServiceTest {
         assertEquals(2, captor.getValue().getParamNameValuePairs().values().stream().filter(value -> value == null).count());
     }
 
+    @Test
+    /** 总库存不能改到已预留库存以下，否则取消或核销订单时无法维持库存不变量。 */
+    void updateRejectsStockBelowReservedStock() {
+        Product product = product(1L, "SKU-1", "商品", "https://example.com/old.jpg", "旧描述");
+        product.setStock(5);
+        product.setReservedStock(3);
+        when(mapper.selectById(1L)).thenReturn(product);
+        when(mapper.selectCount(any())).thenReturn(0L);
+
+        assertThrows(ProductStockConflictException.class, () -> service.update(1L,
+                new ProductWriteRequest("SKU-1", "商品", new BigDecimal("9.90"), 2, 1, null, null)));
+        verify(mapper, never()).update(isNull(), any(LambdaUpdateWrapper.class));
+    }
+
     private Product product(Long id, String sku, String name, String imageUrl, String description) {
         // 构造一次已有数据库记录，模拟编辑前读取到的旧商品。
         Product product = new Product();
@@ -63,6 +78,7 @@ class ProductServiceTest {
         product.setName(name);
         product.setPrice(new BigDecimal("9.90"));
         product.setStock(2);
+        product.setReservedStock(0);
         product.setStatus(1);
         product.setImageUrl(imageUrl);
         product.setDescription(description);

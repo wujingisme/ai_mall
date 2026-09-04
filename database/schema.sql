@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS product (
   name VARCHAR(200) NOT NULL COMMENT '商品名称',
   price DECIMAL(10, 2) UNSIGNED NOT NULL COMMENT '商品价格',
   stock INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '库存',
+  reserved_stock INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '已被未完成订单预留的库存',
   status TINYINT UNSIGNED NOT NULL DEFAULT 1 COMMENT '0 下架，1 上架',
   image_url VARCHAR(1000) NULL COMMENT '主图 URL',
   description TEXT NULL COMMENT '商品描述',
@@ -51,7 +52,8 @@ CREATE TABLE IF NOT EXISTS product (
   PRIMARY KEY (id),
   UNIQUE KEY uk_product_sku (sku),
   KEY idx_product_status_created (status, created_at),
-  CONSTRAINT chk_product_status CHECK (status IN (0, 1))
+  CONSTRAINT chk_product_status CHECK (status IN (0, 1)),
+  CONSTRAINT chk_product_reserved_stock CHECK (reserved_stock <= stock)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='商品';
 
 CREATE TABLE IF NOT EXISTS cart_item (

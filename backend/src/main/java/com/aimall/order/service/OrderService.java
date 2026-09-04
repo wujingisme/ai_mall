@@ -120,7 +120,8 @@ public class OrderService {
             if (!Integer.valueOf(1).equals(product.getStatus())) {
                 throw new OrderRuleException("商品已下架，请从购物车移除后重试");
             }
-            int currentStock = product.getStock() == null ? 0 : product.getStock();
+            // 预览必须使用可售库存；已被其他待取货订单占用的数量不能再次出售。
+            int currentStock = availableStock(product);
             if (quantity > currentStock) {
                 throw new OrderStockInsufficientException(
                         "商品“" + product.getName() + "”库存不足，仅剩 " + currentStock + " 件");
@@ -216,5 +217,12 @@ public class OrderService {
     /** 数据库使用本地时间；API 统一转为带 Asia/Shanghai 偏移量的时间。 */
     private OffsetDateTime toOffset(LocalDateTime value) {
         return value == null ? null : value.atZone(BUSINESS_ZONE).toOffsetDateTime();
+    }
+
+    /** 统一订单预览的库存口径；新增字段前的历史对象按 0 预留兼容。 */
+    private int availableStock(Product product) {
+        int stock = product.getStock() == null ? 0 : product.getStock();
+        int reserved = product.getReservedStock() == null ? 0 : product.getReservedStock();
+        return Math.max(stock - reserved, 0);
     }
 }

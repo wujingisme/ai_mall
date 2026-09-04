@@ -640,7 +640,7 @@ components:
         price: { type: number }
         imageUrl: { type: string, nullable: true }
         quantity: { type: integer }
-        stock: { type: integer }
+        stock: { type: integer, description: 扣除待取货订单预留后的当前可售库存 }
         available: { type: boolean, description: 商品已上架且库存充足 }
     Cart:
       type: object
@@ -931,7 +931,7 @@ components:
         unitPrice: { type: number, minimum: 0, multipleOf: 0.01 }
         quantity: { type: integer, minimum: 1 }
         lineAmount: { type: number, minimum: 0, multipleOf: 0.01 }
-        currentStock: { type: integer, minimum: 0 }
+        currentStock: { type: integer, minimum: 0, description: 扣除待取货订单预留后的当前可售库存 }
         available: { type: boolean, description: 当前上架且库存满足本次数量 }
     OrderPreview:
       type: object

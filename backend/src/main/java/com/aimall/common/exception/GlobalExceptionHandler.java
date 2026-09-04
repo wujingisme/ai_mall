@@ -184,6 +184,18 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ErrorResponse.of("SKU_CONFLICT", e.getMessage()));
     }
 
+    /**
+     * 后台修改商品总库存时，如果低于已被订单占用的数量，返回明确的库存冲突。
+     *
+     * <p>这不是“商品不存在”或“SKU 冲突”：管理员需要保留足够的总库存覆盖已有订单，
+     * 否则后续取消/核销时会出现预留库存无法解释的状态。</p>
+     */
+    @ExceptionHandler(ProductStockConflictException.class)
+    ResponseEntity<ErrorResponse> handleProductStockConflict(ProductStockConflictException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ErrorResponse.of("PRODUCT_STOCK_CONFLICT", e.getMessage()));
+    }
+
     @ExceptionHandler({MethodArgumentNotValidException.class, BindException.class})
     /** 汇总 DTO 字段校验错误，给前端表单逐字段展示提示。 */
     ResponseEntity<ErrorResponse> handleInvalidBody(BindException e) {

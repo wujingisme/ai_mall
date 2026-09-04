@@ -41,11 +41,18 @@ public class ShopProductService {
                 .eq(Product::getStatus, 1));
         if (product == null) throw new ProductNotFoundException(id);
         return new ShopProductDetailResponse(product.getId(), product.getName(), product.getPrice(),
-                product.getImageUrl(), product.getDescription(), product.getStock() <= 0);
+                product.getImageUrl(), product.getDescription(), availableStock(product) <= 0);
     }
 
     private ShopProductListItemResponse toListItem(Product product) {
         return new ShopProductListItemResponse(product.getId(), product.getName(), product.getPrice(),
-                product.getImageUrl(), product.getStock() <= 0);
+                product.getImageUrl(), availableStock(product) <= 0);
+    }
+
+    /** 消费端只关心是否还能购买，因此售罄判断必须扣除待取货订单的预留数量。 */
+    private int availableStock(Product product) {
+        int stock = product.getStock() == null ? 0 : product.getStock();
+        int reserved = product.getReservedStock() == null ? 0 : product.getReservedStock();
+        return Math.max(stock - reserved, 0);
     }
 }

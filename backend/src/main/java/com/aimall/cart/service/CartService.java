@@ -57,7 +57,7 @@ public class CartService {
     }
 
     @Transactional
-    /** 添加商品并与已有数量相加；商品必须存在、上架且库存充足。 */
+    /** 添加商品并与已有数量相加；商品必须存在、上架且可售库存充足。 */
     public CartResponse add(Long userId, CartItemAddRequest request) {
         Product product = requirePurchasableProduct(request.productId());
         CartItem item = find(userId, request.productId());
@@ -77,7 +77,7 @@ public class CartService {
     }
 
     @Transactional
-    /** 替换某个商品的购买数量，并再次检查商品是否仍可购买。 */
+    /** 替换某个商品的购买数量，并再次检查商品是否仍有足够可售库存。 */
     public CartResponse update(Long userId, Long productId, CartItemQuantityRequest request) {
         CartItem item = find(userId, productId);
         if (item == null) throw new CartItemNotFoundException(productId);
@@ -114,7 +114,7 @@ public class CartService {
         // 写操作必须以商品表为准，不能相信前端缓存的价格、状态或库存。
         Product product = productMapper.selectById(productId);
         if (product == null) throw new ProductNotFoundException(productId);
-        if (product.getStatus() == null || product.getStatus() != 1 || product.getStock() == null || product.getStock() <= 0) {
+        if (product.getStatus() == null || product.getStatus() != 1 || availableStock(product) <= 0) {
             throw new CartProductUnavailableException("商品已下架或售罄");
         }
         return product;
@@ -123,16 +123,30 @@ public class CartService {
     private void validateQuantity(int quantity, Product product) {
         // 数据库还有 1-99 的 CHECK；这里提前给出更友好的业务错误消息。
         if (quantity > 99) throw new CartProductUnavailableException("单件商品最多加入 99 件");
-        if (quantity > product.getStock()) throw new CartProductUnavailableException("商品库存不足，仅剩 " + product.getStock() + " 件");
+        int stock = availableStock(product);
+        if (quantity > stock) throw new CartProductUnavailableException("商品库存不足，仅剩 " + stock + " 件");
     }
 
     private CartItemResponse toResponse(CartItem item, Product product) {
         // 商品即使后来下架也保留在购物车中展示，但不计入可结算金额。
         if (product == null) return new CartItemResponse(item.getProductId(), "商品已不存在", BigDecimal.ZERO,
                 null, item.getQuantity(), 0, false);
-        int stock = product.getStock() == null ? 0 : product.getStock();
+        // 对消费者返回的 stock 保持原字段兼容，但它现在代表“当前可售库存”，不是总库存。
+        int stock = availableStock(product);
         boolean available = product.getStatus() != null && product.getStatus() == 1 && stock >= item.getQuantity();
         return new CartItemResponse(product.getId(), product.getName(), product.getPrice(), product.getImageUrl(),
                 item.getQuantity(), stock, available);
+    }
+
+    /**
+     * 计算购物车可用的库存数量。
+     *
+     * <p>订单预留会减少可售量，但不会立即减少 stock 总量；统一在这里计算，
+     * 避免“加入购物车”和“购物车展示”使用不同库存口径。</p>
+     */
+    private int availableStock(Product product) {
+        int stock = product.getStock() == null ? 0 : product.getStock();
+        int reserved = product.getReservedStock() == null ? 0 : product.getReservedStock();
+        return Math.max(stock - reserved, 0);
     }
 }

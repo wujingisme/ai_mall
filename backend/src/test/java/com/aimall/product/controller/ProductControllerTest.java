@@ -1,6 +1,8 @@
 package com.aimall.product.controller;
 
 import com.aimall.common.exception.GlobalExceptionHandler;
+import com.aimall.common.exception.ProductStockConflictException;
+import com.aimall.product.dto.ProductWriteRequest;
 import com.aimall.product.service.ProductService;
 import com.aimall.product.vo.ProductDetailResponse;
 import org.junit.jupiter.api.Test;
@@ -43,5 +45,18 @@ class ProductControllerTest {
     void deleteReturnsNoContent() throws Exception {
         mvc.perform(delete("/api/v1/products/1")).andExpect(status().isNoContent());
         verify(service).delete(1L);
+    }
+
+    @Test
+    /** Admin 修改库存低于预留数量时必须返回稳定的 409 业务错误码。 */
+    void updateReturnsReservedStockConflict() throws Exception {
+        when(service.update(eq(1L), any(ProductWriteRequest.class)))
+                .thenThrow(new ProductStockConflictException(1L, 3));
+
+        mvc.perform(put("/api/v1/products/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sku\":\"SKU-1\",\"name\":\"商品\",\"price\":\"9.90\",\"stock\":2,\"status\":1}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("PRODUCT_STOCK_CONFLICT"));
     }
 }

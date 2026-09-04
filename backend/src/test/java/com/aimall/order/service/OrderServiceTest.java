@@ -108,6 +108,18 @@ class OrderServiceTest {
     }
 
     @Test
+    /** 预览必须扣除已被其他待取货订单占用的数量，不能把总库存误当成可售库存。 */
+    void previewRejectsWhenReservedStockConsumesAvailableStock() {
+        when(cartItemMapper.selectOne(any())).thenReturn(cartItem(1L, 7L, 1));
+        Product product = product(7L, "AI-001", "智能助手", "12.30", 10, 1);
+        product.setReservedStock(10);
+        when(productMapper.selectById(7L)).thenReturn(product);
+
+        assertThrows(OrderStockInsufficientException.class, () -> service.preview(99L,
+                new OrderPreviewRequest(List.of(new OrderPreviewItemRequest(7L, 1)))));
+    }
+
+    @Test
     /** 订单详情查询会按用户 ID 限制数据归属；查不到时由 Service 抛出 404 语义异常。 */
     void getHidesOrdersBelongingToOtherUsers() {
         when(orderMapper.selectOne(any())).thenReturn(null);
@@ -184,6 +196,7 @@ class OrderServiceTest {
         product.setName(name);
         product.setPrice(new BigDecimal(price));
         product.setStock(stock);
+        product.setReservedStock(0);
         product.setStatus(status);
         return product;
     }

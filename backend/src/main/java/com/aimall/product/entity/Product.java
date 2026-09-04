@@ -21,6 +21,13 @@ public class Product {
     private BigDecimal price;
     /** 当前库存数量。 */
     private Integer stock;
+    /**
+     * 已被待取货订单占用、但尚未完成取货的数量。
+     *
+     * <p>可售库存不是单独存储的字段，而是 {@code stock - reservedStock}；
+     * 这样取消订单时可以释放预留，取货核销时再把预留转为已售。</p>
+     */
+    private Integer reservedStock;
     /** 0 下架，1 上架。 */
     private Integer status;
     /** 主图 URL，可为空。 */
@@ -42,6 +49,8 @@ public class Product {
     public void setPrice(BigDecimal price) { this.price = price; }
     public Integer getStock() { return stock; }
     public void setStock(Integer stock) { this.stock = stock; }
+    public Integer getReservedStock() { return reservedStock; }
+    public void setReservedStock(Integer reservedStock) { this.reservedStock = reservedStock; }
     public Integer getStatus() { return status; }
     public void setStatus(Integer status) { this.status = status; }
     public String getImageUrl() { return imageUrl; }
