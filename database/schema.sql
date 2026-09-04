@@ -201,6 +201,7 @@ CREATE TABLE IF NOT EXISTS mall_order (
   total_amount DECIMAL(10, 2) UNSIGNED NOT NULL COMMENT '后端计算的订单总金额',
   item_quantity INT UNSIGNED NOT NULL COMMENT '订单商品总件数',
   idempotency_key VARCHAR(64) NULL COMMENT '客户端创建订单幂等键，第二阶段启用',
+  idempotency_payload_hash CHAR(64) NULL COMMENT '幂等键对应请求商品摘要，防止同键不同参数',
   cancelled_at DATETIME(3) NULL,
   picked_up_at DATETIME(3) NULL,
   created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),

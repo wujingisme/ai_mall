@@ -98,6 +98,24 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/orders:
+    post:
+      tags: [Orders]
+      summary: 创建线上订单
+      operationId: createOrder
+      description: 在事务中校验购物车、锁定商品预留库存、保存商品快照并删除已下单购物车条目；线下取货时付款，不接入真实支付。
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/OrderCreateRequest' } } }
+      responses:
+        '200':
+          description: 创建成功；首次创建返回明文取货码，幂等重试时 pickupCode 为空且 replayed 为 true
+          content: { application/json: { schema: { $ref: '#/components/schemas/OrderCreateResponse' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
   /api/v1/me/orders:
     get:
       tags: [Orders]
@@ -921,6 +939,30 @@ components:
           maxItems: 50
           items: { $ref: '#/components/schemas/OrderPreviewItemRequest' }
       description: 只提交商品和数量；后端重新读取价格、状态和库存，不创建订单、不锁库存、不接支付
+    OrderCreateItemRequest:
+      type: object
+      additionalProperties: false
+      required: [productId, quantity]
+      properties:
+        productId: { type: string, pattern: '^[1-9][0-9]*$', description: 商品 ID，只能选择当前用户购物车中的商品 }
+        quantity: { type: integer, minimum: 1, maximum: 99, description: 本次购买数量，不能超过购物车数量 }
+    OrderCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [items, clientRequestId]
+      properties:
+        items:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items: { $ref: '#/components/schemas/OrderCreateItemRequest' }
+        clientRequestId:
+          type: string
+          minLength: 1
+          maxLength: 64
+          pattern: '^[A-Za-z0-9_-]+$'
+          description: 前端为一次提交生成并在网络重试时复用的幂等键
+      description: 只提交购物车商品和幂等键；金额、价格、状态、用户归属和库存由后端决定
     OrderPreviewItem:
       type: object
       additionalProperties: false
@@ -982,6 +1024,14 @@ components:
         createdAt: { type: string, format: date-time }
         cancelledAt: { type: string, format: date-time, nullable: true }
         pickedUpAt: { type: string, format: date-time, nullable: true }
+    OrderCreateResponse:
+      type: object
+      additionalProperties: false
+      required: [order, replayed]
+      properties:
+        order: { $ref: '#/components/schemas/OrderDetail' }
+        pickupCode: { type: string, nullable: true, description: 仅首次创建成功响应返回的明文取货码 }
+        replayed: { type: boolean, description: 是否复用了同一幂等键对应的已有订单 }
     OrderPage:
       type: object
       additionalProperties: false
