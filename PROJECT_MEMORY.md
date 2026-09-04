@@ -1,6 +1,6 @@
 # AI Mall shared project memory
 
-Last updated: 2026-09-02
+Last updated: 2026-09-04
 
 This file is the shared, repository-local memory for all AI Mall tasks. Read it first when starting work in this repository and update it after material changes. Source code and `api/openapi.yaml` remain the final authority if anything here is stale.
 
@@ -123,7 +123,7 @@ The React admin theme is configured in `admin/src/main.tsx`, with application CS
 - Batch 3 extension — Coupon sharing and claiming: repository code complete on 2026-08-31; run the one-time migration and complete two-account WeChat acceptance before marking runtime complete. Creator rewards remain deferred.
 - Batch 4 — Automatic new-WeChat-user coupon: not started.
 - Batch 5 — Order coupon locking/redemption/refund behavior: not started and should wait for the order module.
-- Order pickup design — 2026-09-04: added `公共知识/订单功能设计方案.md` for online ordering with offline pickup; excludes logistics and real payment, assumes one pickup point, defines order/item snapshots, reserved inventory, one-time pickup codes, state transitions, APIs, phased implementation, and local acceptance cases. No order code or database migration has been added yet.
+- Order pickup design — 2026-09-04: added `公共知识/订单功能设计方案.md` for online ordering with offline pickup; excludes logistics and real payment, assumes one pickup point, defines order/item snapshots, reserved inventory, one-time pickup codes, state transitions, APIs, phased implementation, and local acceptance cases. Phase 1 repository implementation is now complete: `mall_order`/`order_item` DDL and migration, preview API, and read-only “my orders” APIs are present; real local acceptance still requires executing the migration against MySQL. Order creation, inventory reservation, pickup-code verification, coupons, and frontend/admin pages remain future phases.
 - Optional Batch 1.1 — dev-profile-only simulated WeChat login: not started; only needed if real WeChat credentials are unavailable during local development.
 
 ## Verification baseline
@@ -144,6 +144,8 @@ As of 2026-08-31:
 ## Change log
 
 - 2026-09-04 — `order/design`: 新增 `公共知识/订单功能设计方案.md`，确定线上下单、线下取货、不接真实支付和不做物流的范围；设计订单/明细快照、预留库存、取货码、状态流转、接口、事务并发规则、分阶段实施和本地测试场景。仅文档变更，未修改业务代码或数据库。
+
+- 2026-09-04 — `order/phase1`: 新增订单主表 `mall_order`、明细表 `order_item`、迁移 SQL、详细注释的 DTO/Entity/Mapper/Service/Controller/VO 和订单异常；实现 `POST /api/v1/orders/preview`、`GET /api/v1/me/orders`、`GET /api/v1/me/orders/{id}`，后端从 JWT 做用户归属校验，预览按数据库最新价格/状态/库存计算且不写库、不锁库存；同步 OpenAPI、取货点配置、订单设计状态和后端学习笔记。执行仓库本地 Maven 缓存命令，34 个测试全部通过（包含匿名订单接口 401 安全边界测试）；未执行数据库迁移、真实运行时接口验收或前端页面接入。
 
 - 2026-09-04 — `workspace/commenting convention`: 记录用户确认的长期代码注释要求：前后端代码都补充关键中文注释，后端额外详细说明分层、请求链路、安全边界、异常、事务、并发、幂等和数据库影响；仅更新项目记忆，未修改业务代码。
 

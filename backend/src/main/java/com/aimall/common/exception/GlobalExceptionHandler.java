@@ -16,6 +16,9 @@ import com.aimall.coupon.exception.CouponGrantConflictException;
 import com.aimall.coupon.exception.CouponGrantRuleException;
 import com.aimall.coupon.exception.UserCouponNotFoundException;
 import com.aimall.coupon.exception.CouponShareException;
+import com.aimall.order.exception.OrderNotFoundException;
+import com.aimall.order.exception.OrderRuleException;
+import com.aimall.order.exception.OrderStockInsufficientException;
 import com.aimall.common.error.ErrorResponse;
 import com.aimall.common.error.FieldErrorDetail;
 import org.springframework.dao.DuplicateKeyException;
@@ -147,6 +150,27 @@ public class GlobalExceptionHandler {
     ResponseEntity<ErrorResponse> handleCouponShare(CouponShareException e) {
         return ResponseEntity.status(e.isNotFound() ? HttpStatus.NOT_FOUND : HttpStatus.CONFLICT)
                 .body(ErrorResponse.of(e.isNotFound() ? "COUPON_SHARE_NOT_FOUND" : "COUPON_SHARE_CONFLICT", e.getMessage()));
+    }
+
+    /** 订单 ID 不存在或不属于当前用户时统一返回 404，避免泄露订单归属。 */
+    @ExceptionHandler(OrderNotFoundException.class)
+    ResponseEntity<ErrorResponse> handleOrderNotFound(OrderNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ErrorResponse.of("ORDER_NOT_FOUND", e.getMessage()));
+    }
+
+    /** 订单预览参数或购物车归属不合法时返回 400。 */
+    @ExceptionHandler(OrderRuleException.class)
+    ResponseEntity<ErrorResponse> handleOrderRule(OrderRuleException e) {
+        return ResponseEntity.badRequest()
+                .body(ErrorResponse.of("ORDER_RULE_INVALID", e.getMessage()));
+    }
+
+    /** 预览阶段库存不足返回 409，提示前端刷新购物车后重试。 */
+    @ExceptionHandler(OrderStockInsufficientException.class)
+    ResponseEntity<ErrorResponse> handleOrderStock(OrderStockInsufficientException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ErrorResponse.of("ORDER_STOCK_INSUFFICIENT", e.getMessage()));
     }
 
     @ExceptionHandler(CustomerNotFoundException.class)

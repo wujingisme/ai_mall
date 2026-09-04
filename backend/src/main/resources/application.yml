@@ -27,6 +27,12 @@ wechat:
     app-id: ${WECHAT_MINI_PROGRAM_APP_ID:}
     app-secret: ${WECHAT_MINI_PROGRAM_APP_SECRET:}
 
+mall:
+  pickup:
+    # 第一版只有一个固定取货点；创建订单时会把这两个值复制到订单快照。
+    location-name: ${PICKUP_LOCATION_NAME:AI Mall 默认取货点}
+    location-address: ${PICKUP_LOCATION_ADDRESS:请在后台配置线下取货地址}
+
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true

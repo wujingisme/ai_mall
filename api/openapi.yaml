@@ -19,6 +19,7 @@ tags:
   - name: MyCoupons
   - name: Shop
   - name: Cart
+  - name: Orders
   - name: Products
 paths:
   /api/v1/cart:
@@ -79,6 +80,54 @@ paths:
       responses:
         '204': { description: 删除成功；商品不在购物车时同样成功 }
         '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/v1/orders/preview:
+    post:
+      tags: [Orders]
+      summary: 预览线上订单
+      operationId: previewOrder
+      description: 重新读取当前用户购物车和商品价格，计算线下取货订单金额；不创建订单、不锁库存、不接支付。
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/OrderPreviewRequest' } } }
+      responses:
+        '200':
+          description: 预览成功
+          content: { application/json: { schema: { $ref: '#/components/schemas/OrderPreview' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/me/orders:
+    get:
+      tags: [Orders]
+      summary: 查询我的订单
+      operationId: listMyOrders
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: pageSize, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/OrderStatus' } }
+      responses:
+        '200':
+          description: 查询成功
+          content: { application/json: { schema: { $ref: '#/components/schemas/OrderPage' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/v1/me/orders/{id}:
+    get:
+      tags: [Orders]
+      summary: 查询我的订单详情
+      operationId: getMyOrder
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, pattern: '^[1-9][0-9]*$' } }
+      responses:
+        '200':
+          description: 查询成功
+          content: { application/json: { schema: { $ref: '#/components/schemas/OrderDetail' } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /api/v1/shop/products:
     get:
       tags: [Shop]
@@ -850,6 +899,99 @@ components:
         discountAmount: { $ref: '#/components/schemas/MoneyString' }
         expiresAt: { type: string, format: date-time }
         claimable: { type: boolean }
+    OrderStatus:
+      type: string
+      enum: [PENDING_PICKUP, PICKED_UP, CANCELLED]
+      description: 订单状态；首版线上下单后由用户到固定取货点取货
+    OrderPreviewItemRequest:
+      type: object
+      additionalProperties: false
+      required: [productId, quantity]
+      properties:
+        productId: { type: string, pattern: '^[1-9][0-9]*$', description: 商品 ID，只能选择当前用户购物车中的商品 }
+        quantity: { type: integer, minimum: 1, maximum: 99, description: 本次购买数量，不能超过购物车数量 }
+    OrderPreviewRequest:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items: { $ref: '#/components/schemas/OrderPreviewItemRequest' }
+      description: 只提交商品和数量；后端重新读取价格、状态和库存，不创建订单、不锁库存、不接支付
+    OrderPreviewItem:
+      type: object
+      additionalProperties: false
+      required: [productId, name, unitPrice, quantity, lineAmount, currentStock, available]
+      properties:
+        productId: { type: string }
+        name: { type: string }
+        unitPrice: { type: number, minimum: 0, multipleOf: 0.01 }
+        quantity: { type: integer, minimum: 1 }
+        lineAmount: { type: number, minimum: 0, multipleOf: 0.01 }
+        currentStock: { type: integer, minimum: 0 }
+        available: { type: boolean, description: 当前上架且库存满足本次数量 }
+    OrderPreview:
+      type: object
+      additionalProperties: false
+      required: [items, pickupLocationName, pickupLocationAddress, totalQuantity, totalAmount]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/OrderPreviewItem' } }
+        pickupLocationName: { type: string }
+        pickupLocationAddress: { type: string }
+        totalQuantity: { type: integer, minimum: 1 }
+        totalAmount: { type: number, minimum: 0, multipleOf: 0.01 }
+    OrderItem:
+      type: object
+      additionalProperties: false
+      required: [sku, productName, unitPrice, quantity, lineAmount]
+      properties:
+        productId: { type: string, nullable: true }
+        sku: { type: string }
+        productName: { type: string }
+        unitPrice: { type: number, minimum: 0, multipleOf: 0.01 }
+        quantity: { type: integer, minimum: 1 }
+        lineAmount: { type: number, minimum: 0, multipleOf: 0.01 }
+    OrderSummary:
+      type: object
+      additionalProperties: false
+      required: [id, orderNo, status, pickupLocationName, itemQuantity, totalAmount, createdAt]
+      properties:
+        id: { type: string, pattern: '^[1-9][0-9]*$' }
+        orderNo: { type: string }
+        status: { $ref: '#/components/schemas/OrderStatus' }
+        pickupLocationName: { type: string }
+        itemQuantity: { type: integer, minimum: 1 }
+        totalAmount: { type: number, minimum: 0, multipleOf: 0.01 }
+        createdAt: { type: string, format: date-time }
+    OrderDetail:
+      type: object
+      additionalProperties: false
+      required: [id, orderNo, status, pickupLocationName, pickupLocationAddress, itemQuantity, totalAmount, items, createdAt]
+      properties:
+        id: { type: string, pattern: '^[1-9][0-9]*$' }
+        orderNo: { type: string }
+        status: { $ref: '#/components/schemas/OrderStatus' }
+        pickupLocationName: { type: string }
+        pickupLocationAddress: { type: string }
+        itemQuantity: { type: integer, minimum: 1 }
+        totalAmount: { type: number, minimum: 0, multipleOf: 0.01 }
+        items: { type: array, minItems: 1, items: { $ref: '#/components/schemas/OrderItem' } }
+        createdAt: { type: string, format: date-time }
+        cancelledAt: { type: string, format: date-time, nullable: true }
+        pickedUpAt: { type: string, format: date-time, nullable: true }
+    OrderPage:
+      type: object
+      additionalProperties: false
+      required: [items, page, pageSize, total, totalPages]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/OrderSummary' } }
+        page: { type: integer, minimum: 1 }
+        pageSize: { type: integer, minimum: 1 }
+        total: { type: integer, format: int64, minimum: 0 }
+        totalPages: { type: integer, format: int64, minimum: 0 }
     ProductStatus:
       type: integer
       enum: [0, 1]

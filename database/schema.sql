@@ -186,3 +186,51 @@ CREATE TABLE IF NOT EXISTS coupon_claim (
   CONSTRAINT fk_coupon_claim_user FOREIGN KEY (claimant_user_id) REFERENCES mall_user(id),
   CONSTRAINT fk_coupon_claim_coupon FOREIGN KEY (user_coupon_id) REFERENCES user_coupon(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='优惠券分享领取记录';
+
+-- 订单基础表：第一版线上下单、线下取货，不包含物流和真实支付字段。
+CREATE TABLE IF NOT EXISTS mall_order (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '订单数据库主键',
+  order_no VARCHAR(40) NOT NULL COMMENT '对外展示的业务订单号',
+  user_id BIGINT UNSIGNED NOT NULL COMMENT '下单用户',
+  status VARCHAR(24) NOT NULL DEFAULT 'PENDING_PICKUP' COMMENT 'PENDING_PICKUP、PICKED_UP、CANCELLED',
+  pickup_location_name VARCHAR(200) NOT NULL COMMENT '取货点名称快照',
+  pickup_location_address VARCHAR(500) NOT NULL COMMENT '取货点地址快照',
+  pickup_code_hash CHAR(64) NULL COMMENT '取货码 SHA-256 摘要，第二阶段启用',
+  total_amount DECIMAL(10, 2) UNSIGNED NOT NULL COMMENT '后端计算的订单总金额',
+  item_quantity INT UNSIGNED NOT NULL COMMENT '订单商品总件数',
+  idempotency_key VARCHAR(64) NULL COMMENT '客户端创建订单幂等键，第二阶段启用',
+  cancelled_at DATETIME(3) NULL,
+  picked_up_at DATETIME(3) NULL,
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_mall_order_order_no (order_no),
+  UNIQUE KEY uk_mall_order_pickup_code_hash (pickup_code_hash),
+  UNIQUE KEY uk_mall_order_user_idempotency (user_id, idempotency_key),
+  KEY idx_mall_order_user_created (user_id, created_at),
+  KEY idx_mall_order_status_created (status, created_at),
+  CONSTRAINT fk_mall_order_user FOREIGN KEY (user_id) REFERENCES mall_user(id),
+  CONSTRAINT chk_mall_order_status CHECK (status IN ('PENDING_PICKUP', 'PICKED_UP', 'CANCELLED')),
+  CONSTRAINT chk_mall_order_amount CHECK (total_amount >= 0),
+  CONSTRAINT chk_mall_order_item_quantity CHECK (item_quantity > 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='线上订单主表';
+
+-- 订单明细保存下单时的商品快照，商品后续改名、调价或删除不影响历史订单展示。
+CREATE TABLE IF NOT EXISTS order_item (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  order_id BIGINT UNSIGNED NOT NULL COMMENT '所属订单',
+  product_id BIGINT UNSIGNED NULL COMMENT '原商品 ID，商品删除后可为空',
+  sku VARCHAR(64) NOT NULL COMMENT '下单时 SKU 快照',
+  product_name VARCHAR(200) NOT NULL COMMENT '下单时商品名称快照',
+  unit_price DECIMAL(10, 2) UNSIGNED NOT NULL COMMENT '下单时单价快照',
+  quantity INT UNSIGNED NOT NULL COMMENT '购买数量',
+  line_amount DECIMAL(10, 2) UNSIGNED NOT NULL COMMENT '商品行金额快照',
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (id),
+  KEY idx_order_item_order (order_id),
+  KEY idx_order_item_product (product_id),
+  CONSTRAINT fk_order_item_order FOREIGN KEY (order_id) REFERENCES mall_order(id) ON DELETE CASCADE,
+  CONSTRAINT fk_order_item_product FOREIGN KEY (product_id) REFERENCES product(id) ON DELETE SET NULL,
+  CONSTRAINT chk_order_item_quantity CHECK (quantity > 0),
+  CONSTRAINT chk_order_item_amount CHECK (line_amount = unit_price * quantity)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='订单商品快照明细';
