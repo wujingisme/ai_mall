@@ -21,6 +21,10 @@
       "style": { "navigationBarTitleText": "购物车" }
     },
     {
+      "path": "pages/order/preview",
+      "style": { "navigationBarTitleText": "确认订单" }
+    },
+    {
       "path": "pages/profile/index",
       "style": { "navigationBarTitleText": "我的" }
     },

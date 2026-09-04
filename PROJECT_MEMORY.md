@@ -125,7 +125,7 @@ The React admin theme is configured in `admin/src/main.tsx`, with application CS
 - Batch 3 extension — Coupon sharing and claiming: repository code complete on 2026-08-31; run the one-time migration and complete two-account WeChat acceptance before marking runtime complete. Creator rewards remain deferred.
 - Batch 4 — Automatic new-WeChat-user coupon: not started.
 - Batch 5 — Order coupon locking/redemption/refund behavior: not started and should wait for the order module.
-- Order pickup design — 2026-09-04: added `公共知识/订单功能设计方案.md` for online ordering with offline pickup; excludes logistics and real payment, assumes one pickup point, defines order/item snapshots, reserved inventory, one-time pickup codes, state transitions, APIs, phased implementation, and local acceptance cases. Phase 1 repository implementation is now complete: `mall_order`/`order_item` DDL and migration, preview API, and read-only “my orders” APIs are present; the frontend now also has typed order API clients, while preview/list/detail pages are being added in smaller commits. Real local acceptance still requires executing the migration against MySQL. Order creation, inventory reservation, pickup-code verification, coupons, and admin pages remain future phases.
+- Order pickup design — 2026-09-04: added `公共知识/订单功能设计方案.md` for online ordering with offline pickup; excludes logistics and real payment, assumes one pickup point, defines order/item snapshots, reserved inventory, one-time pickup codes, state transitions, APIs, phased implementation, and local acceptance cases. Phase 1 repository implementation is now complete: `mall_order`/`order_item` DDL and migration, preview API, and read-only “my orders” APIs are present; the frontend now has typed order API clients and the cart-to-preview flow, while list/detail pages are being added in smaller commits. Real local acceptance still requires executing the migration against MySQL. Order creation, inventory reservation, pickup-code verification, coupons, and admin pages remain future phases.
 - Optional Batch 1.1 — dev-profile-only simulated WeChat login: not started; only needed if real WeChat credentials are unavailable during local development.
 
 ## Verification baseline
@@ -150,6 +150,8 @@ As of 2026-08-31:
 - 2026-09-04 — `order/phase1`: 新增订单主表 `mall_order`、明细表 `order_item`、迁移 SQL、详细注释的 DTO/Entity/Mapper/Service/Controller/VO 和订单异常；实现 `POST /api/v1/orders/preview`、`GET /api/v1/me/orders`、`GET /api/v1/me/orders/{id}`，后端从 JWT 做用户归属校验，预览按数据库最新价格/状态/库存计算且不写库、不锁库存；同步 OpenAPI、取货点配置、订单设计状态和后端学习笔记。执行仓库本地 Maven 缓存命令，34 个测试全部通过（包含匿名订单接口 401 安全边界测试）；未执行数据库迁移、真实运行时接口验收或前端页面接入。
 
 - 2026-09-04 — `frontend/order/api`: 新增 `frontend/src/types/order.ts` 和 `frontend/src/api/order.ts`，为订单预览、我的订单列表和详情提供带中文关键注释的类型与请求封装；不改变页面行为。执行 `npm run type-check` 通过。
+
+- 2026-09-04 — `frontend/order/preview`: 新增订单预览页，购物车“去结算”改为进入预览，补充订单页路由和登录保护；页面先读取购物车，再只提交商品 ID/数量给后端计算最新金额，并展示固定线下取货点；暂不创建订单、支付或锁库存。执行 `npm run type-check` 通过。
 
 - 2026-09-04 — `workspace/incremental-commits`: 记录用户确认的长期协作偏好：后续代码尽量按数据库/契约、后端、测试、前端和文档等小范围拆成多次本地提交；每次提交说明范围与验证结果，默认不推送远程，便于定位和安全回退。
 

@@ -4,6 +4,7 @@ export const ROUTES = {
   register: '/pages/auth/register',
   productDetail: '/pages/product/detail',
   cart: '/pages/cart/index',
+  orderPreview: '/pages/order/preview',
   profile: '/pages/profile/index',
   coupons: '/pages/coupon/list',
   couponDetail: '/pages/coupon/detail',

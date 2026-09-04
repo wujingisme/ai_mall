@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { cartApi } from '@/api/cart'
 import type { Cart, CartItem } from '@/types/cart'
+import { ROUTES } from '@/utils/navigation'
 
 const items = ref<CartItem[]>([])
 const total = ref(0)
@@ -41,7 +42,8 @@ function checkout() {
     uni.showToast({ title: '请先移除失效或库存不足的商品', icon: 'none' })
     return
   }
-  uni.showToast({ title: '结算功能即将上线', icon: 'none' })
+  // 当前购物车没有勾选控件，第一版先把全部可用商品交给预览页；后续可再扩展为选择部分商品。
+  uni.navigateTo({ url: ROUTES.orderPreview })
 }
 function goShopping() { uni.switchTab({ url: '/pages/product/list' }) }
 onShow(load)
