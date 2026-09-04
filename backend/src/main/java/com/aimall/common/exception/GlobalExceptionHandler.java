@@ -7,6 +7,7 @@ import com.aimall.auth.exception.UsernameAlreadyExistsException;
 import com.aimall.auth.exception.RefreshTokenInvalidException;
 import com.aimall.auth.exception.WechatLoginException;
 import com.aimall.auth.exception.CustomerNotFoundException;
+import com.aimall.auth.exception.CustomerManagementConflictException;
 import com.aimall.cart.exception.CartItemNotFoundException;
 import com.aimall.cart.exception.CartProductUnavailableException;
 import com.aimall.coupon.exception.CouponTemplateNotFoundException;
@@ -211,6 +212,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(CustomerNotFoundException.class)
     ResponseEntity<ErrorResponse> handleCustomerNotFound(CustomerNotFoundException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ErrorResponse.of("USER_NOT_FOUND", e.getMessage()));
+    }
+
+    /** 双角色后台账号仍属于员工身份，不能通过客户管理入口停用或启用。 */
+    @ExceptionHandler(CustomerManagementConflictException.class)
+    ResponseEntity<ErrorResponse> handleCustomerManagementConflict(CustomerManagementConflictException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ErrorResponse.of("CUSTOMER_ACCOUNT_CONFLICT", e.getMessage()));
     }
 
 

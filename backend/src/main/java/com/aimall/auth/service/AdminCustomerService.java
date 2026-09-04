@@ -1,6 +1,7 @@
 package com.aimall.auth.service;
 
 import com.aimall.auth.entity.MallUser;
+import com.aimall.auth.exception.CustomerManagementConflictException;
 import com.aimall.auth.exception.CustomerNotFoundException;
 import com.aimall.auth.mapper.MallUserMapper;
 import com.aimall.auth.vo.*;
@@ -12,14 +13,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import java.time.*;
 import java.util.Arrays;
+import java.util.Set;
 
 @Service
 /**
  * 后台客户查询服务。
  *
  * <p>“客户”在这里特指带有 CUSTOMER 角色的商城用户。后台账号也存在于同一张
- * {@code mall_user} 表中，因此每个按 ID 的操作都必须再次确认 CUSTOMER 角色，
- * 防止管理员误操作其他后台账号。</p>
+ * {@code mall_user} 表中；支持双角色后，ADMIN,CUSTOMER 账号可以出现在列表中查看，
+ * 但启停操作还会额外拒绝后台职责账号，防止误停用管理员。</p>
  */
 public class AdminCustomerService {
     private final MallUserMapper mapper;
@@ -44,7 +46,7 @@ public class AdminCustomerService {
                 result.getCurrent(), result.getSize(), result.getTotal(), result.getPages());
     }
 
-    /** 后台用户管理列表，可同时查看已停用客户。 */
+    /** 后台用户管理列表，可同时查看已停用客户和已开通消费者身份的后台账号。 */
     public AdminUserPageResponse listUsers(int page, int pageSize, String keyword, Boolean enabled) {
         LambdaQueryWrapper<MallUser> query = customerQuery(keyword).eq(enabled != null, MallUser::getEnabled, enabled)
                 .orderByDesc(MallUser::getId);
@@ -63,6 +65,10 @@ public class AdminCustomerService {
      */
     public AdminUserResponse changeEnabled(Long id, boolean enabled) {
         MallUser user = requireCustomer(id);
+        if (hasStaffRole(user.getRoles())) {
+            // 双角色账号会出现在客户列表，但停用它会同时阻断后台登录，所以必须拒绝该操作。
+            throw new CustomerManagementConflictException();
+        }
         if (!Boolean.valueOf(enabled).equals(user.getEnabled())) {
             mapper.update(null, com.baomidou.mybatisplus.core.toolkit.Wrappers.lambdaUpdate(MallUser.class)
                     .eq(MallUser::getId, id).apply("FIND_IN_SET('CUSTOMER', roles) > 0")
@@ -90,6 +96,11 @@ public class AdminCustomerService {
         return user;
     }
     private boolean hasCustomerRole(String roles) { return roles != null && Arrays.stream(roles.split(",")).map(String::trim).anyMatch("CUSTOMER"::equals); }
+    /** 判断是否仍有后台职责；CUSTOMER 与后台角色并存时也不能走客户启停逻辑。 */
+    private boolean hasStaffRole(String roles) {
+        return roles != null && Arrays.stream(roles.split(",")).map(String::trim)
+                .anyMatch(role -> Set.of("SUPER_ADMIN", "ADMIN", "OPERATOR").contains(role));
+    }
     private AdminUserResponse toAdminResponse(MallUser user) {
         return new AdminUserResponse(user.getId().toString(), user.getUsername(), user.getDisplayName(), user.getAvatarUrl(),
                 Boolean.TRUE.equals(user.getEnabled()), user.getRoles(), StringUtils.hasText(user.getWechatOpenId()), toOffset(user.getCreatedAt()), toOffset(user.getUpdatedAt()));

@@ -45,6 +45,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/shop/products/**").permitAll()
                         // 购物车按 JWT 中的用户 ID 隔离，游客不能读取或修改任何购物车数据。
                         .requestMatchers("/api/v1/cart/**").authenticated()
+                        // 当前后台账号自助开通 CUSTOMER 只是给自己追加消费者能力，不会改变其他人的后台权限。
+                        .requestMatchers("/api/v1/admin/accounts/me/customer-role")
+                                .hasAnyRole("SUPER_ADMIN", "ADMIN", "OPERATOR")
                         // 创建后台账号属于高权限操作，只允许超级管理员调用。
                         .requestMatchers("/api/v1/admin/accounts/**").hasRole("SUPER_ADMIN")
                         // 优惠券模板属于运营配置，仅后台管理角色可查看和变更。

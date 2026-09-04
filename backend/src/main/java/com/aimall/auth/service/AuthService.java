@@ -20,6 +20,7 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -112,6 +113,41 @@ public class AuthService {
     /** 由已授权的超级管理员创建日常后台账号。 */
     public CurrentUserResponse createAdminAccount(AdminAccountCreateRequest request) {
         return createUser(request.username(), request.password(), request.displayName(), request.role());
+    }
+
+    /**
+     * 当前后台账号自助开通消费者身份。
+     *
+     * <p>这是“同一个人既管理后台又在前台购物”的安全入口：调用方只能修改 JWT
+     * 中自己的用户记录，不能把 CUSTOMER 角色授予其他账号，也不会改变已有的
+     * ADMIN、OPERATOR 或 SUPER_ADMIN 角色。角色追加放在事务中，并先锁住用户行，
+     * 这样重复点击或两个后台窗口同时点击都不会写出重复角色。</p>
+     */
+    @Transactional
+    public CurrentUserResponse enableCustomerRole(Long userId) {
+        MallUser user = userMapper.selectForUpdateById(userId);
+        if (user == null) {
+            // 正常请求已经由 JWT 过滤器确认用户存在；这里仍保留防御性判断，避免未来复用 Service 时出现空指针。
+            throw new InvalidCredentialsException();
+        }
+
+        LinkedHashSet<String> roles = new LinkedHashSet<>();
+        if (StringUtils.hasText(user.getRoles())) {
+            Arrays.stream(user.getRoles().split(","))
+                    .map(String::trim)
+                    .filter(role -> !role.isEmpty())
+                    .map(role -> role.toUpperCase(Locale.ROOT))
+                    .forEach(roles::add);
+        }
+        if (roles.add("CUSTOMER")) {
+            String updatedRoles = String.join(",", roles);
+            if (userMapper.updateRoles(userId, updatedRoles) != 1) {
+                // 角色更新失败必须让事务回滚，不能向前端返回“已开通”造成认知不一致。
+                throw new IllegalStateException("用户消费者角色更新失败");
+            }
+            user.setRoles(updatedRoles);
+        }
+        return toCurrentUser(user);
     }
 
     private CurrentUserResponse createUser(String username, String password, String displayName, String role) {
