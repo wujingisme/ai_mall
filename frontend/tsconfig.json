@@ -1,8 +1,7 @@
 {
   "extends": "@vue/tsconfig/tsconfig.dom.json",
   "compilerOptions": {
-    "baseUrl": ".",
-    "paths": { "@/*": ["src/*"] },
+    "paths": { "@/*": ["./src/*"] },
     "types": ["@dcloudio/types", "vite/client"],
     "lib": ["ES2020", "DOM"]
   },
