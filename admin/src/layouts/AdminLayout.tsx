@@ -1,4 +1,4 @@
-import { GiftOutlined, LogoutOutlined, ShoppingOutlined, TeamOutlined, UserAddOutlined } from '@ant-design/icons';
+import { FileTextOutlined, GiftOutlined, LogoutOutlined, ShoppingOutlined, TeamOutlined, UserAddOutlined } from '@ant-design/icons';
 import { Avatar, Button, Layout, Menu, Space, Typography, message } from 'antd';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { logout } from '../api';
@@ -14,8 +14,9 @@ export default function AdminLayout() {
     clearSession(); navigate('/login', { replace: true });
   };
   return <Layout className="app-layout">
-    <Layout.Sider breakpoint="lg" collapsedWidth="0"><div className="brand">AI Mall</div><Menu theme="dark" selectedKeys={[location.pathname.startsWith('/accounts') ? 'accounts' : location.pathname.startsWith('/users') ? 'users' : location.pathname.startsWith('/coupon-grants') ? 'coupon-grants' : location.pathname.startsWith('/coupon-templates') ? 'coupon-templates' : 'products']} onClick={({ key }) => navigate(`/${key}`)} items={[
+    <Layout.Sider breakpoint="lg" collapsedWidth="0"><div className="brand">AI Mall</div><Menu theme="dark" selectedKeys={[location.pathname.startsWith('/accounts') ? 'accounts' : location.pathname.startsWith('/users') ? 'users' : location.pathname.startsWith('/orders') ? 'orders' : location.pathname.startsWith('/coupon-grants') ? 'coupon-grants' : location.pathname.startsWith('/coupon-templates') ? 'coupon-templates' : 'products']} onClick={({ key }) => navigate(`/${key}`)} items={[
       { key: 'products', icon: <ShoppingOutlined />, label: '商品管理' },
+      { key: 'orders', icon: <FileTextOutlined />, label: '订单管理' },
       { key: 'coupon-templates', icon: <GiftOutlined />, label: '优惠券模板' },
       { key: 'coupon-grants', icon: <GiftOutlined />, label: '人工发券' },
       { key: 'users', icon: <TeamOutlined />, label: '用户管理' },

@@ -45,3 +45,46 @@ export interface AdminUser extends CustomerSummary { enabled: boolean; roles: st
 export interface AdminUserPage { items: AdminUser[]; page: number; pageSize: number; total: number; totalPages: number }
 export interface AdminUserCoupon { id: string; templateId: string; name: string; minimumSpend: string; discountAmount: string; validFrom: string; validUntil: string; status: 'AVAILABLE' | 'USED' | 'EXPIRED'; source: 'MANUAL'; createdAt: string }
 export interface AdminUserCouponPage { items: AdminUserCoupon[]; page: number; pageSize: number; total: number; totalPages: number }
+
+/** 订单状态与后端 OrderStatus 枚举保持一致，页面不能自行发明状态值。 */
+export type OrderStatus = 'PENDING_PICKUP' | 'PICKED_UP' | 'CANCELLED';
+
+/** Admin 订单列表一行数据；客户字段可能为空，兼容历史脏数据或已删除用户。 */
+export interface AdminOrderSummary {
+  id: string;
+  orderNo: string;
+  userId: string | null;
+  username: string | null;
+  displayName: string | null;
+  status: OrderStatus;
+  pickupLocationName: string;
+  itemQuantity: number;
+  totalAmount: number;
+  createdAt: string;
+}
+
+export interface AdminOrderPage {
+  items: AdminOrderSummary[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
+/** 订单商品快照；详情接口返回的是下单时的名称/价格，不是当前商品表数据。 */
+export interface AdminOrderItem {
+  productId: string | null;
+  sku: string;
+  productName: string;
+  unitPrice: number;
+  quantity: number;
+  lineAmount: number;
+}
+
+/** Admin 订单详情；取货码只在后续核销接口提交，不会出现在这里。 */
+export interface AdminOrderDetail extends AdminOrderSummary {
+  pickupLocationAddress: string;
+  items: AdminOrderItem[];
+  cancelledAt: string | null;
+  pickedUpAt: string | null;
+}

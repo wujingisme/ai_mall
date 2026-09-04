@@ -1,5 +1,5 @@
 import { request } from '../utils/request';
-import type { AdminAccountPayload, AdminUser, AdminUserCouponPage, AdminUserPage, CouponGrant, CouponGrantPayload, CouponTemplate, CouponTemplatePage, CouponTemplatePayload, CouponTemplateStatus, CustomerPage, Product, ProductPage, ProductPayload, TokenResponse, User } from '../types';
+import type { AdminAccountPayload, AdminOrderDetail, AdminOrderPage, AdminOrderSummary, AdminUser, AdminUserCouponPage, AdminUserPage, CouponGrant, CouponGrantPayload, CouponTemplate, CouponTemplatePage, CouponTemplatePayload, CouponTemplateStatus, CustomerPage, OrderStatus, Product, ProductPage, ProductPayload, TokenResponse, User } from '../types';
 
 export const login = async (username: string, password: string) => (await request.post<TokenResponse>('/auth/login', { username, password })).data;
 export const logout = async (refreshToken: string) => request.post('/auth/logout', { refreshToken });
@@ -24,3 +24,7 @@ export const getAdminUser = async (id: string) => (await request.get<AdminUser>(
 export const activateAdminUser = async (id: string) => (await request.post<AdminUser>(`/admin/customers/manage/${id}/activation`)).data;
 export const deactivateAdminUser = async (id: string) => (await request.post<AdminUser>(`/admin/customers/manage/${id}/deactivation`)).data;
 export const listAdminUserCoupons = async (id: string, params: { page: number; pageSize: number; status?: string }) => (await request.get<AdminUserCouponPage>(`/admin/customers/manage/${id}/coupons`, { params })).data;
+/** 后台订单列表只传筛选条件；权限仍由后端 JWT 角色校验，不能依赖菜单隐藏。 */
+export const listAdminOrders = async (params: { page: number; pageSize: number; status?: OrderStatus; orderNo?: string; userId?: string }) => (await request.get<AdminOrderPage>('/admin/orders', { params })).data;
+/** 读取订单快照详情，不会返回取货码明文或数据库哈希。 */
+export const getAdminOrder = async (id: string) => (await request.get<AdminOrderDetail>(`/admin/orders/${id}`)).data;
