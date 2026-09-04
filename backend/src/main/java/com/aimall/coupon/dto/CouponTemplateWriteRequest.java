@@ -4,6 +4,7 @@ import jakarta.validation.constraints.*;
 
 import java.time.OffsetDateTime;
 
+/** 优惠券模板的写入请求；金额用字符串传输，避免前端浮点数精度问题。 */
 public record CouponTemplateWriteRequest(
         @NotBlank(message = "优惠券名称不能为空") @Size(max = 100, message = "优惠券名称最多 100 个字符") String name,
         @NotBlank(message = "优惠券类型不能为空") String couponType,

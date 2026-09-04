@@ -29,6 +29,12 @@ import java.time.LocalDateTime;
 import java.util.*;
 
 @Service
+/**
+ * 认证业务服务。
+ *
+ * <p>这里把“注册/登录/微信登录/刷新/退出”这些跨越数据库和安全组件的流程串起来。
+ * Controller 只负责接 HTTP；本类负责决定业务是否允许继续，以及何时写入用户和会话表。</p>
+ */
 public class AuthService {
     private static final Logger log = LoggerFactory.getLogger(AuthService.class);
     private final MallUserMapper userMapper;
@@ -60,6 +66,12 @@ public class AuthService {
     }
 
     @Transactional
+    /**
+     * 微信小程序登录流程：一次性 code -> 微信 OpenID -> 本地 CUSTOMER 用户 -> 商城令牌。
+     *
+     * <p>同一个 OpenID 再次登录会复用原用户；首次插入遇到唯一键冲突时重新查询，
+     * 这是为了处理两个并发请求同时第一次登录同一个微信用户的情况。</p>
+     */
     public TokenResponse loginWithWechat(String code) {
         WechatMiniProgramClient.WechatIdentity identity = wechatClient.exchangeCode(code);
         MallUser user = userMapper.selectOne(new LambdaQueryWrapper<MallUser>()
@@ -90,17 +102,20 @@ public class AuthService {
     }
 
     @Transactional
+    /** 消费者注册固定写入 CUSTOMER 角色，防止客户端通过注册接口获得后台权限。 */
     public CurrentUserResponse register(RegisterRequest request) {
         // 消费者自助注册只能获得 CUSTOMER，绝不能获得可访问管理后台的角色。
         return createUser(request.username(), request.password(), request.displayName(), "CUSTOMER");
     }
 
     @Transactional
+    /** 由已授权的超级管理员创建日常后台账号。 */
     public CurrentUserResponse createAdminAccount(AdminAccountCreateRequest request) {
         return createUser(request.username(), request.password(), request.displayName(), request.role());
     }
 
     private CurrentUserResponse createUser(String username, String password, String displayName, String role) {
+        // 先查一次可以给出友好的业务错误；真正的并发安全仍依赖数据库 username 唯一索引。
         boolean exists = userMapper.selectCount(new LambdaQueryWrapper<MallUser>()
                 .eq(MallUser::getUsername, username)) > 0;
         if (exists) throw new UsernameAlreadyExistsException();
@@ -125,6 +140,12 @@ public class AuthService {
 
     // 登录失败仍需提交失败次数与锁定时间，因此认证类异常不能触发事务回滚。
     @Transactional(noRollbackFor = {InvalidCredentialsException.class, AccountLockedException.class})
+    /**
+     * 密码登录。
+     *
+     * <p>失败次数的更新必须提交，所以认证失败异常不回滚事务；否则用户永远不会被锁定。
+     * 用户不存在和密码错误统一返回，避免通过响应差异枚举有效用户名。</p>
+     */
     public TokenResponse login(LoginRequest request) {
         LocalDateTime now = LocalDateTime.now();
         MallUser user = userMapper.selectOne(new LambdaQueryWrapper<MallUser>()
@@ -150,6 +171,10 @@ public class AuthService {
     }
 
     @Transactional
+    /**
+     * 刷新令牌轮换：哈希查询旧会话，条件撤销旧会话，再创建新会话。
+     * 条件撤销的返回行数必须是 1，才能证明当前请求赢得了并发竞争。
+     */
     public TokenResponse refresh(RefreshTokenRequest request) {
         LocalDateTime now = LocalDateTime.now();
         String tokenHash = sha256(request.refreshToken());
@@ -175,6 +200,7 @@ public class AuthService {
     }
 
     @Transactional
+    /** 撤销刷新令牌；找不到令牌也不报错，使网络重试不会让退出按钮变红。 */
     public void logout(RefreshTokenRequest request) {
         LocalDateTime now = LocalDateTime.now();
         // 退出必须幂等：令牌不存在或已撤销时也直接视为成功。
@@ -185,6 +211,7 @@ public class AuthService {
         log.info("退出登录完成");
     }
 
+    /** 根据过滤器放入的用户 ID 查询当前用户，并再次确认账号仍处于启用状态。 */
     public CurrentUserResponse currentUser(String userId) {
         MallUser user;
         try {
@@ -198,6 +225,7 @@ public class AuthService {
     }
 
     private TokenResponse createSession(MallUser user, LocalDateTime now) {
+        // 数据库只保存刷新令牌的 SHA-256 摘要；明文只在这次响应中返回给客户端。
         String refreshToken = randomToken();
         AuthSession session = new AuthSession();
         session.setId(UUID.randomUUID().toString());
@@ -211,6 +239,7 @@ public class AuthService {
     }
 
     private CurrentUserResponse toCurrentUser(MallUser user) {
+        // 角色在数据库中以逗号分隔保存，返回前拆成 JSON 数组并去空、去重。
         List<String> roles = Arrays.stream(user.getRoles().split(",")).map(String::trim)
                 .filter(role -> !role.isEmpty()).distinct().toList();
         return new CurrentUserResponse(user.getId().toString(), user.getUsername(),
@@ -218,6 +247,7 @@ public class AuthService {
     }
 
     private void recordFailure(MallUser user, LocalDateTime now) {
+        // Optional 兼容历史数据中可能为 null 的失败次数；达到阈值后记录锁定截止时间。
         int failures = Optional.ofNullable(user.getFailedLoginAttempts()).orElse(0) + 1;
         user.setFailedLoginAttempts(failures);
         if (failures >= maxFailures) user.setLockedUntil(now.plusSeconds(lockSeconds));
@@ -226,12 +256,14 @@ public class AuthService {
     }
 
     private String randomToken() {
+        // SecureRandom 生成不可预测字节，Base64 URL-safe 形式便于放进 JSON 和 HTTP 请求。
         byte[] bytes = new byte[32];
         secureRandom.nextBytes(bytes);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 
     private String sha256(String value) {
+        // 数据库泄露时不能直接拿摘要当刷新令牌使用；前端永远拿不到这里的 hash。
         try {
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
                     .digest(value.getBytes(StandardCharsets.UTF_8)));

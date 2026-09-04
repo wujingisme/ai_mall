@@ -14,12 +14,20 @@ import java.time.*;
 import java.util.Arrays;
 
 @Service
+/**
+ * 后台客户查询服务。
+ *
+ * <p>“客户”在这里特指带有 CUSTOMER 角色的商城用户。后台账号也存在于同一张
+ * {@code mall_user} 表中，因此每个按 ID 的操作都必须再次确认 CUSTOMER 角色，
+ * 防止管理员误操作其他后台账号。</p>
+ */
 public class AdminCustomerService {
     private final MallUserMapper mapper;
     private final UserCouponService userCouponService;
     private static final ZoneId ZONE = ZoneId.of("Asia/Shanghai");
     public AdminCustomerService(MallUserMapper mapper, UserCouponService userCouponService) { this.mapper = mapper; this.userCouponService = userCouponService; }
 
+    /** 发券页面使用的轻量客户搜索，只返回非敏感摘要且只查询启用客户。 */
     public CustomerPageResponse list(int page, int pageSize, String keyword) {
         LambdaQueryWrapper<MallUser> query = new LambdaQueryWrapper<MallUser>()
                 .eq(MallUser::getEnabled, true)
@@ -36,6 +44,7 @@ public class AdminCustomerService {
                 result.getCurrent(), result.getSize(), result.getTotal(), result.getPages());
     }
 
+    /** 后台用户管理列表，可同时查看已停用客户。 */
     public AdminUserPageResponse listUsers(int page, int pageSize, String keyword, Boolean enabled) {
         LambdaQueryWrapper<MallUser> query = customerQuery(keyword).eq(enabled != null, MallUser::getEnabled, enabled)
                 .orderByDesc(MallUser::getId);
@@ -44,8 +53,14 @@ public class AdminCustomerService {
                 result.getCurrent(), result.getSize(), result.getTotal(), result.getPages());
     }
 
+    /** 查询一个客户的公开管理信息，不返回密码、OpenID 等敏感身份字段。 */
     public AdminUserResponse getUser(Long id) { return toAdminResponse(requireCustomer(id)); }
 
+    /**
+     * 修改客户启用状态。
+     *
+     * <p>更新条件中再次限制 CUSTOMER，避免 ID 被替换或数据变化时误修改管理员。</p>
+     */
     public AdminUserResponse changeEnabled(Long id, boolean enabled) {
         MallUser user = requireCustomer(id);
         if (!Boolean.valueOf(enabled).equals(user.getEnabled())) {
@@ -56,17 +71,20 @@ public class AdminCustomerService {
         return toAdminResponse(requireCustomer(id));
     }
 
+    /** 先验证目标确实是客户，再复用“我的优惠券”服务按该用户查询。 */
     public UserCouponPageResponse listCoupons(Long userId, int page, int pageSize, String status) {
         requireCustomer(userId);
         return userCouponService.list(userId, page, pageSize, status);
     }
 
     private LambdaQueryWrapper<MallUser> customerQuery(String keyword) {
+        // FIND_IN_SET 适配当前逗号分隔角色字段；后续角色表改造时应同步替换这里的查询。
         LambdaQueryWrapper<MallUser> query = new LambdaQueryWrapper<MallUser>().apply("FIND_IN_SET('CUSTOMER', roles) > 0");
         if (StringUtils.hasText(keyword)) { String value = keyword.trim(); query.and(group -> group.like(MallUser::getUsername, value).or().like(MallUser::getDisplayName, value)); }
         return query;
     }
     private MallUser requireCustomer(Long id) {
+        // 查询不到或角色不是 CUSTOMER 时统一伪装成“客户不存在”，不泄露后台账号信息。
         MallUser user = mapper.selectById(id);
         if (user == null || !hasCustomerRole(user.getRoles())) throw new CustomerNotFoundException(id);
         return user;

@@ -4,6 +4,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
+/** 超级管理员创建后台账号的请求体；role 只允许 ADMIN 或 OPERATOR。 */
 public record AdminAccountCreateRequest(
         @NotBlank @Size(min = 3, max = 64)
         @Pattern(regexp = "^[A-Za-z0-9_]+$", message = "只能包含字母、数字和下划线") String username,

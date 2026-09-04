@@ -8,6 +8,7 @@ import org.apache.ibatis.annotations.Update;
 import org.apache.ibatis.annotations.Select;
 
 @Mapper
+/** 优惠券模板数据库访问接口；除了通用 CRUD，还包含防超发的原子更新。 */
 public interface CouponTemplateMapper extends BaseMapper<CouponTemplate> {
     // 条件更新把状态、有效期和剩余发行量校验收敛到一条 SQL，避免并发请求超发。
     @Update("""
@@ -21,6 +22,7 @@ public interface CouponTemplateMapper extends BaseMapper<CouponTemplate> {
     int reserveIssueQuantity(@Param("templateId") Long templateId, @Param("quantity") int quantity);
 
     @Select("SELECT * FROM coupon_template WHERE id = #{id} FOR UPDATE")
+    /** 在事务中锁住模板行，让领取流程按模板串行判断库存和用户限领。 */
     CouponTemplate selectByIdForUpdate(@Param("id") Long id);
 
 }

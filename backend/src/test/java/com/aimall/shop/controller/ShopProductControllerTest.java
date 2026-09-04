@@ -21,6 +21,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(controllers = ShopProductController.class)
 @Import(SecurityConfig.class)
+/** 消费端商品接口测试：确认匿名可访问且不会泄露后台字段。 */
 class ShopProductControllerTest {
     @Autowired MockMvc mvc;
     @MockitoBean ShopProductService shopProductService;
@@ -28,6 +29,7 @@ class ShopProductControllerTest {
     @MockitoBean MallUserMapper mallUserMapper;
 
     @Test
+    /** 消费端列表只返回展示字段，不返回 SKU 和精确库存。 */
     void listsConsumerProductsWithoutAdminFields() throws Exception {
         when(shopProductService.list(1, 20, null)).thenReturn(new ShopProductPageResponse(
                 List.of(new ShopProductListItemResponse(1L, "示例商品", new BigDecimal("99.00"), null, false)),

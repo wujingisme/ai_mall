@@ -84,6 +84,10 @@ The React admin theme is configured in `admin/src/main.tsx`, with application CS
 
 ## Important implementation notes
 
+- **代码注释约定**：以后新增或修改前后端代码都必须补充关键中文注释。前端至少说明组件/函数职责、数据流、状态变化、接口参数和非直观的边界处理；后端必须更详细地说明分层职责、请求链路、权限与数据归属、异常路径、事务/并发/幂等、数据库影响，以及关键实现为什么这样选择。注释应解释业务原因，避免只重复代码字面含义。
+
+- **文件路径约束**：后续任何新文件、缓存、构建产物、可视化文件和临时文件均不得写入 C 盘；默认使用 `E:\ai_mall` 或用户明确指定的其他非 C 盘路径。已存在的 C 盘文件不得未经确认删除。
+
 - User background and explanation style: the user is primarily a frontend developer and is not yet familiar with databases, backend development, or operations. When discussing MySQL, Java/Spring, Linux, servers, deployment, Nginx, BaoTa, permissions, processes, ports, or similar topics, explain each new term in plain frontend-oriented language; state what the step is for, exactly where to perform it, what successful output looks like, and whether it can affect local or production services. Do not provide unexplained operations commands or assume backend/operations knowledge.
 - Before making any code, configuration, API, database, build, or workflow change, present the proposed design to the user first and wait for explicit approval. The proposal should identify the intended behavior, affected modules/files, API and data semantics, compatibility or migration impact, verification plan, and the viable options with each option's advantages, disadvantages, risks, and suitable use cases. State a recommendation and its rationale, then implement only after the user confirms. Read-only diagnosis and explanation may proceed without approval.
 - User confirmation workflow: after every new request that would create, modify, delete, move, install, configure, or execute something, first briefly restate the understood goal and intended action, then stop and wait for explicit confirmation such as “是的”, “确认”, or “可以”. Do not start the action merely because the request appears clear. Read-only explanations that require no action may be answered directly.
@@ -137,6 +141,18 @@ As of 2026-08-31:
 - Do not assume a successful UI route guard secures an API; authorization must remain enforced by Spring Security.
 
 ## Change log
+
+- 2026-09-04 — `workspace/commenting convention`: 记录用户确认的长期代码注释要求：前后端代码都补充关键中文注释，后端额外详细说明分层、请求链路、安全边界、异常、事务、并发、幂等和数据库影响；仅更新项目记忆，未修改业务代码。
+
+- 2026-09-04 — `backend/documentation`: 为后端 Java 主代码和测试代码补充中文类、方法、字段和关键流程注释；新增 `公共知识/后端代码阅读手册.md`，说明前端开发者的阅读路径、请求链路、分层职责、常见故障定位和后端开发顺序；同步扩展 `公共知识/后端知识点.md`。注释和文档不改变运行逻辑；使用仓库本地 Maven 缓存执行 `mvn "-Dmaven.repo.local=E:\\ai_mall\\.m2\\repository" test`，22 个测试全部通过。
+
+- 2026-09-02 — `公共知识可视化`: 重做 `公共知识/优惠券功能设计详细交互版.html`，参考主流电商生命周期补充可用、锁券、支付核销、取消释放、退款回补、订单快照和对账视角；文件仍只写入 E 盘。
+
+- 2026-09-02 — `公共知识可视化`: 新增 `公共知识/优惠券功能设计详细交互版.html`，按数据模型、人工发券、分享领取、订单核销和面试回答五个专题展示优惠券设计；文件写入 E 盘，未修改业务代码。
+
+- 2026-09-02 — `公共知识文档`: 新增 `公共知识/优惠券功能设计详细版.md`，整理优惠券领域模型、接口链路、事务幂等并发、安全边界、测试验收和面试问答；文档依据现有设计与实现编写，未执行代码验证。
+
+- 2026-09-02 — `workspace/file-path-policy`: recorded the user's requirement that future files, caches, build outputs, visualizations, and temporary files must not be written to C:; existing C: files require confirmation before deletion. Documentation-only change; verified by reviewing this memory entry.
 
 - 2026-09-02 — `workspace/communication preference`: recorded that database, backend, and operations topics must be explained clearly from a frontend developer's perspective, including terminology, purpose, execution location, expected results, and operational risk. Documentation-only change; no runtime verification was needed.
 

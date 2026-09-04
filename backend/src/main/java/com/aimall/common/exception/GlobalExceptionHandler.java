@@ -30,10 +30,18 @@ import java.time.OffsetDateTime;
 import java.util.List;
 
 @RestControllerAdvice
+/**
+ * 全局异常到 HTTP 响应的统一转换器。
+ *
+ * <p>Service 只需要抛出有业务含义的异常；Spring 找到这里对应的处理方法后，
+ * 会返回稳定的状态码和错误码。未知异常只记录服务端堆栈，客户端只看到通用 500，
+ * 避免泄露数据库或内部实现细节。</p>
+ */
 public class GlobalExceptionHandler {
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(WechatLoginException.class)
+    /** 将微信适配器的失败分类映射为 401、503 等客户端可处理的响应。 */
     ResponseEntity<ErrorResponse> handleWechatLogin(WechatLoginException e) {
         HttpStatus status;
         String code;
@@ -55,6 +63,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(status).body(ErrorResponse.of(code, e.getMessage()));
     }
     @ExceptionHandler(RefreshTokenInvalidException.class)
+    /** 无效刷新令牌统一返回 401，前端应清理会话并回到登录页。 */
     ResponseEntity<ErrorResponse> handleRefreshTokenInvalid(RefreshTokenInvalidException e) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .body(ErrorResponse.of("REFRESH_TOKEN_INVALID", e.getMessage()));
@@ -152,6 +161,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler({MethodArgumentNotValidException.class, BindException.class})
+    /** 汇总 DTO 字段校验错误，给前端表单逐字段展示提示。 */
     ResponseEntity<ErrorResponse> handleInvalidBody(BindException e) {
         List<FieldErrorDetail> details = e.getBindingResult().getFieldErrors().stream()
                 .map(error -> new FieldErrorDetail(error.getField(), error.getDefaultMessage())).toList();
@@ -165,6 +175,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(Exception.class)
+    /** 最后的兜底处理：服务端记录完整堆栈，客户端不暴露内部异常消息。 */
     ResponseEntity<ErrorResponse> handleUnexpected(Exception e) {
         Throwable rootCause = e;
         while (rootCause.getCause() != null && rootCause.getCause() != rootCause) {

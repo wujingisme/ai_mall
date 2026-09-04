@@ -4,19 +4,33 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import java.time.LocalDateTime;
 
 @TableName("mall_user")
+/** 商城用户实体；角色当前以逗号分隔字符串保存，密码字段保存 BCrypt 摘要。 */
 public class MallUser {
+    /** 数据库自增用户 ID，接口层通常序列化为字符串避免 JS 精度问题。 */
     private Long id;
+    /** 密码登录用户名；数据库唯一。 */
     private String username;
+    /** BCrypt 密码摘要，禁止返回给前端。 */
     private String passwordHash;
+    /** 页面展示名称。 */
     private String displayName;
+    /** 可选头像地址。 */
     private String avatarUrl;
+    /** 微信小程序 OpenID；只在服务端识别微信用户。 */
     private String wechatOpenId;
+    /** 微信 UnionID；可能为空，当前只做预留。 */
     private String wechatUnionId;
+    /** 逗号分隔角色，例如 CUSTOMER 或 ADMIN。 */
     private String roles;
+    /** 账号是否允许登录和调用受保护接口。 */
     private Boolean enabled;
+    /** 连续密码失败次数。 */
     private Integer failedLoginAttempts;
+    /** 临时锁定截止时间，空表示当前没有锁定。 */
     private LocalDateTime lockedUntil;
+    /** 创建时间。 */
     private LocalDateTime createdAt;
+    /** 最近修改时间。 */
     private LocalDateTime updatedAt;
 
     public Long getId() { return id; }

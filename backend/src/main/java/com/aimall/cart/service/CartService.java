@@ -22,6 +22,12 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
+/**
+ * 购物车业务层。
+ *
+ * <p>购物车表只保存用户、商品和数量；名称、价格、库存等展示信息每次从商品表读取，
+ * 所以商品下架或库存变化后，购物车能显示最新可用性。</p>
+ */
 public class CartService {
     private final CartItemMapper cartItemMapper;
     private final ProductMapper productMapper;
@@ -31,6 +37,7 @@ public class CartService {
         this.productMapper = productMapper;
     }
 
+    /** 查询当前用户购物车，并计算总数量和仍可购买商品的金额。 */
     public CartResponse get(Long userId) {
         List<CartItem> cartItems = cartItemMapper.selectList(new LambdaQueryWrapper<CartItem>()
                 .eq(CartItem::getUserId, userId).orderByDesc(CartItem::getUpdatedAt));
@@ -50,6 +57,7 @@ public class CartService {
     }
 
     @Transactional
+    /** 添加商品并与已有数量相加；商品必须存在、上架且库存充足。 */
     public CartResponse add(Long userId, CartItemAddRequest request) {
         Product product = requirePurchasableProduct(request.productId());
         CartItem item = find(userId, request.productId());
@@ -69,6 +77,7 @@ public class CartService {
     }
 
     @Transactional
+    /** 替换某个商品的购买数量，并再次检查商品是否仍可购买。 */
     public CartResponse update(Long userId, Long productId, CartItemQuantityRequest request) {
         CartItem item = find(userId, productId);
         if (item == null) throw new CartItemNotFoundException(productId);
@@ -80,6 +89,7 @@ public class CartService {
     }
 
     @Transactional
+    /** 删除当前用户的指定商品，数据库删除 0 行也视为成功。 */
     public CartResponse remove(Long userId, Long productId) {
         // 删除操作保持幂等，重复点击或网络重试不会产生额外错误。
         cartItemMapper.delete(new LambdaQueryWrapper<CartItem>()
@@ -88,17 +98,20 @@ public class CartService {
     }
 
     @Transactional
+    /** 删除当前用户全部购物车条目，并返回空汇总。 */
     public CartResponse clear(Long userId) {
         cartItemMapper.delete(new LambdaQueryWrapper<CartItem>().eq(CartItem::getUserId, userId));
         return new CartResponse(List.of(), 0, BigDecimal.ZERO);
     }
 
     private CartItem find(Long userId, Long productId) {
+        // 用户 ID 和商品 ID 同时作为条件，防止读到其他用户的同款商品。
         return cartItemMapper.selectOne(new LambdaQueryWrapper<CartItem>()
                 .eq(CartItem::getUserId, userId).eq(CartItem::getProductId, productId));
     }
 
     private Product requirePurchasableProduct(Long productId) {
+        // 写操作必须以商品表为准，不能相信前端缓存的价格、状态或库存。
         Product product = productMapper.selectById(productId);
         if (product == null) throw new ProductNotFoundException(productId);
         if (product.getStatus() == null || product.getStatus() != 1 || product.getStock() == null || product.getStock() <= 0) {
@@ -108,6 +121,7 @@ public class CartService {
     }
 
     private void validateQuantity(int quantity, Product product) {
+        // 数据库还有 1-99 的 CHECK；这里提前给出更友好的业务错误消息。
         if (quantity > 99) throw new CartProductUnavailableException("单件商品最多加入 99 件");
         if (quantity > product.getStock()) throw new CartProductUnavailableException("商品库存不足，仅剩 " + product.getStock() + " 件");
     }

@@ -8,17 +8,28 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @TableName("product")
+/** 商品数据库实体；消费端通过另一组 VO 做字段裁剪。 */
 public class Product {
+    /** 自增商品主键。 */
     @TableId(type = IdType.AUTO)
     private Long id;
+    /** 商家内部商品编码，必须唯一。 */
     private String sku;
+    /** 商品展示名称。 */
     private String name;
+    /** 使用 BigDecimal 保存金额，避免 double 浮点误差。 */
     private BigDecimal price;
+    /** 当前库存数量。 */
     private Integer stock;
+    /** 0 下架，1 上架。 */
     private Integer status;
+    /** 主图 URL，可为空。 */
     private String imageUrl;
+    /** 详情描述，可为空。 */
     private String description;
+    /** 创建时间。 */
     private LocalDateTime createdAt;
+    /** 最近修改时间。 */
     private LocalDateTime updatedAt;
 
     public Long getId() { return id; }

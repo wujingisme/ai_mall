@@ -17,6 +17,12 @@ import java.time.*;
 import java.util.Set;
 
 @Service
+/**
+ * 优惠券模板生命周期服务。
+ *
+ * <p>模板是“规则定义”，不是用户真正拥有的券。草稿可完整修改；ACTIVE 后核心规则锁定，
+ * DISABLED 只阻止继续发放，不自动撤销已发出的用户券。</p>
+ */
 public class CouponTemplateService {
     public static final String STATUS_DRAFT = "DRAFT";
     public static final String STATUS_ACTIVE = "ACTIVE";
@@ -31,6 +37,7 @@ public class CouponTemplateService {
 
     public CouponTemplateService(CouponTemplateMapper mapper) { this.mapper = mapper; }
 
+    /** 分页查询模板，并把外部状态字符串规范化后再参与 SQL。 */
     public CouponTemplatePageResponse list(int page, int pageSize, String keyword, String status) {
         String normalizedStatus = normalizeOptionalStatus(status);
         LambdaQueryWrapper<CouponTemplate> query = new LambdaQueryWrapper<>();
@@ -43,9 +50,11 @@ public class CouponTemplateService {
                 result.getCurrent(), result.getSize(), result.getTotal(), result.getPages());
     }
 
+    /** 查询模板详情，不存在时抛出统一 404 业务异常。 */
     public CouponTemplateResponse get(Long id) { return toResponse(requireTemplate(id)); }
 
     @Transactional
+    /** 创建并校验模板；issuedQuantity 从 0 开始，status 固定为 DRAFT。 */
     public CouponTemplateResponse create(CouponTemplateWriteRequest request) {
         CouponTemplate template = new CouponTemplate();
         applyAndValidate(template, request);
@@ -56,17 +65,21 @@ public class CouponTemplateService {
     }
 
     @Transactional
+    /** 完整替换草稿字段，并显式清理另一种有效期模式的 null 字段。 */
     public CouponTemplateResponse update(Long id, CouponTemplateWriteRequest request) {
+        // 先读取旧模板，只有 DRAFT 可以修改；ACTIVE/DISABLED 的规则必须保持稳定。
         CouponTemplate existing = requireTemplate(id);
         if (!STATUS_DRAFT.equals(existing.getStatus())) {
             throw new CouponTemplateStateConflictException("只有草稿状态的优惠券模板可以修改");
         }
+        // 在临时对象中完成全部校验，校验失败时不会碰数据库中的旧模板。
         CouponTemplate replacement = new CouponTemplate();
         applyAndValidate(replacement, request);
         if (replacement.getTotalQuantity() < existing.getIssuedQuantity()) {
             throw new CouponTemplateRuleException("发行总量不能小于已发行数量");
         }
         // PUT 是草稿可编辑字段的完整替换；显式写入 null，确保两种有效期模式切换时清除另一模式字段。
+        // WHERE 同时带上 DRAFT 状态，避免管理员打开编辑页期间模板被别人启用后仍被覆盖。
         int updated = mapper.update(null, Wrappers.lambdaUpdate(CouponTemplate.class)
                 .eq(CouponTemplate::getId, id)
                 .eq(CouponTemplate::getStatus, STATUS_DRAFT)
@@ -86,7 +99,9 @@ public class CouponTemplateService {
     }
 
     @Transactional
+    /** 条件更新 DRAFT -> ACTIVE；重复启用直接返回当前模板。 */
     public CouponTemplateResponse activate(Long id) {
+        // 先读取是为了给重复启用和非法状态提供明确业务语义；真正切换使用条件更新。
         CouponTemplate template = requireTemplate(id);
         if (STATUS_ACTIVE.equals(template.getStatus())) return toResponse(template);
         if (!STATUS_DRAFT.equals(template.getStatus())) {
@@ -101,7 +116,9 @@ public class CouponTemplateService {
     }
 
     @Transactional
+    /** 条件更新 ACTIVE -> DISABLED；重复停用直接返回当前模板。 */
     public CouponTemplateResponse deactivate(Long id) {
+        // 停用不删除模板，也不修改已发出的用户券，只阻止后续发放/分享领取。
         CouponTemplate template = requireTemplate(id);
         if (STATUS_DISABLED.equals(template.getStatus())) return toResponse(template);
         if (!STATUS_ACTIVE.equals(template.getStatus())) {
@@ -115,6 +132,7 @@ public class CouponTemplateService {
     }
 
     private void applyAndValidate(CouponTemplate template, CouponTemplateWriteRequest request) {
+        // 这里集中处理跨字段规则，DTO 注解只能校验单个字段的格式，无法表达金额大小关系。
         String couponType = request.couponType().trim().toUpperCase();
         if (!TYPE_FIXED_AMOUNT.equals(couponType)) {
             throw new CouponTemplateRuleException("首版只支持 FIXED_AMOUNT 满减券");
@@ -135,6 +153,7 @@ public class CouponTemplateService {
         LocalDateTime validUntil = null;
         Integer validDays = null;
         if (VALIDITY_FIXED_RANGE.equals(validityType)) {
+            // 两种有效期字段互斥：固定范围只能有起止时间，不能同时有 validDays。
             if (request.validFrom() == null || request.validUntil() == null || request.validDays() != null) {
                 throw new CouponTemplateRuleException("固定有效期必须提供开始和结束时间，且不能提供有效天数");
             }
@@ -142,6 +161,7 @@ public class CouponTemplateService {
             validUntil = toBusinessTime(request.validUntil());
             if (!validUntil.isAfter(validFrom)) throw new CouponTemplateRuleException("结束时间必须晚于开始时间");
         } else if (VALIDITY_DAYS_AFTER_RECEIPT.equals(validityType)) {
+            // 领取后有效模式的起止时间由领取时刻计算，因此写入模板时必须为空。
             if (request.validDays() == null || request.validFrom() != null || request.validUntil() != null) {
                 throw new CouponTemplateRuleException("领取后有效模式必须提供有效天数，且不能提供固定开始和结束时间");
             }
@@ -164,6 +184,7 @@ public class CouponTemplateService {
     }
 
     private void validateActivation(CouponTemplate template) {
+        // 启用是权益规则冻结点；过期模板或没有库存的模板不应进入 ACTIVE。
         if (VALIDITY_FIXED_RANGE.equals(template.getValidityType())
                 && !template.getValidUntil().isAfter(LocalDateTime.now(BUSINESS_ZONE))) {
             throw new CouponTemplateRuleException("固定有效期优惠券的结束时间必须晚于当前时间");
@@ -174,6 +195,7 @@ public class CouponTemplateService {
     }
 
     private BigDecimal parseAmount(String value, String fieldName) {
+        // 金额使用 BigDecimal 而不是 double，避免二进制浮点误差影响满减判断。
         try {
             return new BigDecimal(value).setScale(2);
         } catch (ArithmeticException | NumberFormatException e) {
@@ -189,6 +211,7 @@ public class CouponTemplateService {
     }
 
     private CouponTemplate requireTemplate(Long id) {
+        // 所有公开操作共用此存在性检查，保持 404 语义一致。
         CouponTemplate template = mapper.selectById(id);
         if (template == null) throw new CouponTemplateNotFoundException(id);
         return template;

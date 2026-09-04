@@ -22,6 +22,13 @@ import java.io.IOException;
 import java.util.List;
 
 @Component
+/**
+ * 每个 HTTP 请求只执行一次的 JWT 认证过滤器。
+ *
+ * <p>它位于 Controller 之前：读取 Authorization 请求头，验证令牌，
+ * 再把用户 ID 和角色放入 Spring Security 的上下文。后续 Controller 通过
+ * {@code Authentication} 读取这些信息，而不是相信请求体里的用户 ID。</p>
+ */
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
     private final MallUserMapper userMapper;
@@ -34,12 +41,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     @Override
+    /** 解析 Bearer 令牌；无效令牌不建立认证上下文，让受保护路由统一返回 401。 */
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
         String authorization = request.getHeader("Authorization");
+        // 没有 Bearer 头时保持匿名，公开接口可以继续执行，受保护接口稍后由 SecurityConfig 拒绝。
         if (authorization != null && authorization.startsWith("Bearer ")) {
             try {
+                // substring(7) 去掉固定前缀 "Bearer "，剩余内容才是 JWT 紧凑字符串。
                 Claims claims = jwtService.parseAccessToken(authorization.substring(7));
+                // 令牌签名有效不代表用户今天仍存在或启用，因此每次请求补一次数据库状态检查。
                 MallUser user = userMapper.selectById(Long.valueOf(claims.getSubject()));
                 if (user != null && !Boolean.TRUE.equals(user.getEnabled())) {
                     response.setStatus(HttpServletResponse.SC_FORBIDDEN);
@@ -49,6 +60,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 }
                 if (user == null) throw new IllegalArgumentException("用户不存在");
                 List<?> roles = claims.get("roles", List.class);
+                // Spring 的 hasRole("ADMIN") 会寻找 ROLE_ADMIN，所以这里补上 ROLE_ 前缀。
                 var authorities = roles == null ? List.<SimpleGrantedAuthority>of() : roles.stream()
                         .map(String::valueOf).map(role -> new SimpleGrantedAuthority("ROLE_" + role)).toList();
                 var authentication = new UsernamePasswordAuthenticationToken(claims.getSubject(), null, authorities);

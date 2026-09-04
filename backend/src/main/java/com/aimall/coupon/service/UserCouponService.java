@@ -14,6 +14,7 @@ import java.time.*;
 import java.util.Set;
 
 @Service
+/** 用户优惠券查询服务；负责按归属过滤并实时派生 AVAILABLE/EXPIRED 展示状态。 */
 public class UserCouponService {
     private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Shanghai");
     private static final Set<String> FILTER_STATUSES = Set.of("AVAILABLE", "USED", "EXPIRED");
@@ -21,6 +22,7 @@ public class UserCouponService {
 
     public UserCouponService(UserCouponMapper mapper) { this.mapper = mapper; }
 
+    /** 分页查询用户自己的券；EXPIRED 不写回数据库，而是根据 validUntil 实时计算。 */
     public UserCouponPageResponse list(Long userId, int page, int pageSize, String status) {
         String normalized = normalizeStatus(status);
         LocalDateTime now = LocalDateTime.now(BUSINESS_ZONE);
@@ -34,6 +36,7 @@ public class UserCouponService {
                 result.getCurrent(), result.getSize(), result.getTotal(), result.getPages());
     }
 
+    /** 按 userId + couponId 双条件读取，防止越权查看其他用户的券。 */
     public UserCouponResponse get(Long userId, Long id) {
         UserCoupon coupon = mapper.selectOne(new LambdaQueryWrapper<UserCoupon>()
                 .eq(UserCoupon::getId, id).eq(UserCoupon::getUserId, userId));
@@ -42,6 +45,7 @@ public class UserCouponService {
     }
 
     private String normalizeStatus(String status) {
+        // 外部筛选值统一大写，并拒绝未知状态，避免静默返回错误结果。
         if (!StringUtils.hasText(status)) return null;
         String normalized = status.trim().toUpperCase();
         if (!FILTER_STATUSES.contains(normalized)) throw new CouponGrantRuleException("优惠券状态筛选不合法");
@@ -49,6 +53,7 @@ public class UserCouponService {
     }
 
     private UserCouponResponse toResponse(UserCoupon coupon, LocalDateTime now) {
+        // 数据库只保存 UNUSED/USED；过期是时间派生状态，不需要定时任务维护。
         String displayStatus = "UNUSED".equals(coupon.getStatus()) && !coupon.getValidUntil().isAfter(now)
                 ? "EXPIRED" : "UNUSED".equals(coupon.getStatus()) ? "AVAILABLE" : coupon.getStatus();
         return new UserCouponResponse(coupon.getId().toString(), coupon.getTemplateId().toString(), coupon.getName(),

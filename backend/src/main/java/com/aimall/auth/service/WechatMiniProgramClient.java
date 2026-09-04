@@ -15,6 +15,13 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 
 @Component
+/**
+ * 微信小程序 code2Session 的供应商适配器。
+ *
+ * <p>微信返回格式、错误码和响应头属于外部系统，不能让这些细节扩散到整个应用。
+ * 本类负责配置检查、请求、限长读取、JSON 解析和错误分类，向 AuthService 只暴露
+ * {@link WechatIdentity} 或统一的 {@link WechatLoginException}。</p>
+ */
 public class WechatMiniProgramClient {
     private static final Logger log = LoggerFactory.getLogger(WechatMiniProgramClient.class);
     private static final int MAX_RESPONSE_BYTES = 16 * 1024;
@@ -32,6 +39,12 @@ public class WechatMiniProgramClient {
         this.appSecret = appSecret;
     }
 
+    /**
+     * 将小程序一次性 code 换成本地登录所需的 OpenID。
+     *
+     * <p>返回体限制为 16 KiB，既足够容纳微信正常响应，也避免异常上游返回超大内容。
+     * 不记录 AppSecret、code、完整 URL 或外部 errmsg。</p>
+     */
     public WechatIdentity exchangeCode(String code) {
         if (appId.isBlank() || appSecret.isBlank()) {
             throw new WechatLoginException(WechatLoginException.Failure.NOT_CONFIGURED,
@@ -71,6 +84,7 @@ public class WechatMiniProgramClient {
     }
 
     private RawWechatResponse fetchRawResponse(String code) {
+        // code2Session 使用 GET 查询参数；这里是唯一接触 appSecret 的请求边界。
         try {
             return restClient.get().uri(uri -> uri.path("/sns/jscode2session")
                     .queryParam("appid", appId).queryParam("secret", appSecret)
@@ -88,6 +102,7 @@ public class WechatMiniProgramClient {
     }
 
     private RawWechatResponse readRawResponse(ClientHttpResponse response) {
+        // 多读取一个字节，用于识别“超过上限”的响应，而不是静默截断后误解析。
         try {
             return new RawWechatResponse(response.getStatusCode().value(),
                     response.getBody().readNBytes(MAX_RESPONSE_BYTES + 1));
@@ -99,6 +114,7 @@ public class WechatMiniProgramClient {
     }
 
     private WechatLoginException mapWechatError(int errorCode) {
+        // 将供应商错误码翻译成稳定的内部错误分类，Controller 不需要了解微信错误码。
         return switch (errorCode) {
             case 40029 -> new WechatLoginException(WechatLoginException.Failure.INVALID_CREDENTIAL,
                     "微信登录凭证无效或已过期");
@@ -121,6 +137,7 @@ public class WechatMiniProgramClient {
         return root.getClass().getSimpleName();
     }
 
+    /** 微信身份的最小内部表示；OpenID 只在服务端使用，不返回给前端。 */
     public record WechatIdentity(String openId, String unionId) {}
     private record RawWechatResponse(int statusCode, byte[] body) {}
     private record CodeSessionResponse(

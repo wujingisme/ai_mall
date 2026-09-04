@@ -26,6 +26,12 @@ import java.time.*;
 import java.util.Base64;
 
 @Service
+/**
+ * 优惠券分享和领取服务。
+ *
+ * <p>分享链接只携带随机 token，数据库只保存 token 的 SHA-256 摘要；公开解析只能展示预览，
+ * 真正领取必须登录并经过本人保护、模板状态、库存、有效期、限领和唯一领取记录检查。</p>
+ */
 public class CouponShareService {
     private static final ZoneId ZONE = ZoneId.of("Asia/Shanghai");
     private final SecureRandom random = new SecureRandom();
@@ -42,6 +48,10 @@ public class CouponShareService {
     }
 
     @Transactional
+    /**
+     * 为当前用户的一张可用优惠券创建分享凭证。
+     * 分享有效期取“原券有效期”和“当前时间+7 天”中较早者，避免分享链接比原券更长寿。
+     */
     public CouponShareCreateResponse create(Long userId, CouponShareCreateRequest request) {
         LocalDateTime now = LocalDateTime.now(ZONE);
         UserCoupon owned = couponMapper.selectOne(new LambdaQueryWrapper<UserCoupon>()
@@ -62,6 +72,7 @@ public class CouponShareService {
     }
 
     public CouponShareResolveResponse resolve(CouponTokenRequest request) {
+        // 解析是公开预览，不会修改库存或领取次数；claimable 只代表当前状态看起来可领取。
         CouponShare share = find(request.shareToken());
         CouponTemplate template = templateMapper.selectById(share.getTemplateId());
         if (template == null) throw new CouponShareException("分享不存在或已失效", true);
@@ -73,23 +84,37 @@ public class CouponShareService {
     }
 
     @Transactional
+    /**
+     * 登录用户领取分享券。
+     *
+     * <p>先锁模板行，再检查用户限领和模板库存，最后条件递增分享领取次数并写入用户券与领取审计。
+     * 事务失败时这些写入一起回滚。</p>
+     */
     public UserCouponResponse claim(Long userId, CouponTokenRequest request) {
+        // 1. token 找分享；分享人本人不能领取自己的链接。
         CouponShare share = find(request.shareToken());
         if (share.getCreatorUserId().equals(userId)) throw new CouponShareException("不能领取自己分享的优惠券", false);
+        // 2. 锁模板行，让同一模板的库存/限领判断在并发领取中按顺序进行。
         templateMapper.selectByIdForUpdate(share.getTemplateId());
+        // 3. 先查领取审计，实现同一用户重复请求的幂等返回。
         CouponClaim existing = claimMapper.selectOne(new LambdaQueryWrapper<CouponClaim>()
                 .eq(CouponClaim::getShareId, share.getId()).eq(CouponClaim::getClaimantUserId, userId));
         if (existing != null) return couponService.response(couponMapper.selectById(existing.getUserCouponId()));
+        // 4. 重新读取模板，确认分享创建后模板仍允许分享且处于 ACTIVE。
         CouponTemplate template = templateMapper.selectById(share.getTemplateId());
         if (template == null || !Boolean.TRUE.equals(template.getShareEnabled()) || !"ACTIVE".equals(template.getStatus()))
             throw new CouponShareException("该优惠券当前不允许分享领取", false);
+        // 5. 原子预占一张模板库存；SQL 返回 0 就代表过期、停用或已领完。
         if (templateMapper.reserveIssueQuantity(template.getId(), 1) != 1)
             throw new CouponShareException("优惠券已过期、停用或已经领完", false);
+        // 6. 检查领取人对该模板的总拥有量，避免通过多个分享绕过 perUserLimit。
         long received = couponMapper.selectCount(new LambdaQueryWrapper<UserCoupon>()
                 .eq(UserCoupon::getTemplateId, template.getId()).eq(UserCoupon::getUserId, userId));
         if (received + 1 > template.getPerUserLimit()) throw new CouponShareException("你已达到该优惠券的领取上限", false);
+        // 7. 原子消耗分享名额；这是“同一分享只能被首个请求领取”的最后闸门。
         if (shareMapper.consumeClaim(share.getId()) != 1) throw new CouponShareException("分享已失效或已被领取", false);
         LocalDateTime now = LocalDateTime.now(ZONE);
+        // 8. 写入用户券快照和领取审计；任一步失败都会回滚前面的库存变化。
         UserCoupon coupon = new UserCoupon(); coupon.setUserId(userId); coupon.setTemplateId(template.getId());
         coupon.setShareId(share.getId()); coupon.setSource("SHARE"); coupon.setName(template.getName());
         coupon.setCouponType(template.getCouponType()); coupon.setMinimumSpend(template.getMinimumSpend()); coupon.setDiscountAmount(template.getDiscountAmount());
@@ -101,10 +126,12 @@ public class CouponShareService {
     }
 
     private CouponShare find(String token) {
+        // token 本身不落库；即使数据库被读取，也只能得到不可直接使用的摘要。
         CouponShare share = shareMapper.selectOne(new LambdaQueryWrapper<CouponShare>().eq(CouponShare::getTokenHash, hash(token)));
         if (share == null) throw new CouponShareException("分享不存在或已失效", true); return share;
     }
     private String hash(String value) {
+        // SHA-256 只用于查找和去重，不承担登录令牌那样的可逆职责。
         try { return java.util.HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8))); }
         catch (NoSuchAlgorithmException e) { throw new IllegalStateException("SHA-256 不可用", e); }
     }

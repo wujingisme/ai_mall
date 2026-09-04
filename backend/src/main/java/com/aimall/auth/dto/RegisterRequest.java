@@ -4,6 +4,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
+/** 消费者自助注册请求；Service 会强制把新用户角色设置为 CUSTOMER。 */
 public record RegisterRequest(
         @NotBlank @Size(min = 3, max = 64)
         @Pattern(regexp = "^[A-Za-z0-9_]+$", message = "只能包含字母、数字和下划线") String username,

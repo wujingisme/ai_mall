@@ -18,16 +18,19 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 
+/** 商品 Service 单元测试：重点验证 PUT 完整替换和 null 清空语义。 */
 class ProductServiceTest {
     private final ProductMapper mapper = mock(ProductMapper.class);
     private final ProductService service = new ProductService(mapper);
 
     @BeforeAll
+    /** 初始化 MyBatis 的实体元数据，使 LambdaUpdateWrapper 能解析 Product 字段。 */
     static void initializeMybatisMetadata() {
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), "product-test"), Product.class);
     }
 
     @Test
+    /** 空图片和空描述必须作为 SQL NULL 写入，而不能被 updateById 忽略。 */
     void fullUpdateIncludesNullOptionalFields() {
         Product product = product(1L, "OLD", "旧商品", "https://example.com/old.jpg", "旧描述");
         when(mapper.selectById(1L)).thenReturn(product);
@@ -53,6 +56,7 @@ class ProductServiceTest {
     }
 
     private Product product(Long id, String sku, String name, String imageUrl, String description) {
+        // 构造一次已有数据库记录，模拟编辑前读取到的旧商品。
         Product product = new Product();
         product.setId(id);
         product.setSku(sku);

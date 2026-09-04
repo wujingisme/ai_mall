@@ -3,6 +3,7 @@ package com.aimall.product.dto;
 import jakarta.validation.constraints.*;
 import java.math.BigDecimal;
 
+/** 后台商品创建/完整替换请求；imageUrl 和 description 为空表示清除。 */
 public record ProductWriteRequest(
         @NotBlank(message = "SKU 不能为空") @Size(max = 64, message = "SKU 最多 64 个字符") String sku,
         @NotBlank(message = "商品名称不能为空") @Size(max = 200, message = "商品名称最多 200 个字符") String name,
