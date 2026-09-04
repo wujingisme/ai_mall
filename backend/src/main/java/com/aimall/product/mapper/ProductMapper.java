@@ -35,4 +35,17 @@ public interface ProductMapper extends BaseMapper<Product> {
     @Update("UPDATE product SET reserved_stock = reserved_stock - #{quantity} "
             + "WHERE id = #{productId} AND reserved_stock >= #{quantity}")
     int releaseReservedStock(@Param("productId") Long productId, @Param("quantity") int quantity);
+
+    /**
+     * 取货核销时把预留库存转为已售库存。
+     *
+     * <p>stock 和 reserved_stock 同时减少相同数量，保持“reserved_stock <= stock”不变量；
+     * 两个非负条件防止历史脏数据或重复核销造成无符号整数下溢。调用方必须先取得商品行锁，
+     * 返回 1 才允许继续更新订单状态，返回 0 会让整个核销事务回滚。</p>
+     */
+    @Update("UPDATE product SET stock = stock - #{quantity}, "
+            + "reserved_stock = reserved_stock - #{quantity} "
+            + "WHERE id = #{productId} AND stock >= #{quantity} "
+            + "AND reserved_stock >= #{quantity} AND reserved_stock <= stock")
+    int settlePickedUpStock(@Param("productId") Long productId, @Param("quantity") int quantity);
 }

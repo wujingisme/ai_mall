@@ -201,6 +201,27 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/admin/orders/{id}/pickup-verification:
+    post:
+      tags: [Orders]
+      summary: 后台核销线下取货订单
+      operationId: verifyAdminOrderPickup
+      description: 校验 8 位取货码；成功后在同一事务中将订单改为 PICKED_UP，并把 stock 与 reserved_stock 同时扣减。重复核销在取货码正确时幂等返回当前订单详情。
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, pattern: '^[1-9][0-9]*$' } }
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/PickupVerificationRequest' } } }
+      responses:
+        '200':
+          description: 核销成功或已核销订单重复请求
+          content: { application/json: { schema: { $ref: '#/components/schemas/AdminOrderDetail' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
   /api/v1/shop/products:
     get:
       tags: [Shop]
@@ -1141,6 +1162,17 @@ components:
         pageSize: { type: integer, minimum: 1 }
         total: { type: integer, format: int64, minimum: 0 }
         totalPages: { type: integer, format: int64, minimum: 0 }
+    PickupVerificationRequest:
+      type: object
+      additionalProperties: false
+      required: [pickupCode]
+      properties:
+        pickupCode:
+          type: string
+          minLength: 8
+          maxLength: 8
+          pattern: '^[23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjklmnpqrstuvwxyz]+$'
+          description: 用户首次下单响应中获得的 8 位取货码；后端只计算摘要，不保存明文
     ProductStatus:
       type: integer
       enum: [0, 1]

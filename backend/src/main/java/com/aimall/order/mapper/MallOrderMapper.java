@@ -22,6 +22,15 @@ public interface MallOrderMapper extends BaseMapper<MallOrder> {
     MallOrder selectForUpdate(@Param("userId") Long userId, @Param("orderId") Long orderId);
 
     /**
+     * 后台核销时锁住订单行。
+     *
+     * <p>后台已经由 Spring Security 完成角色校验，这里不带用户条件是因为店员需要处理
+     * 任意客户的订单；行锁保证两个店员同时输入同一个取货码时只能串行进入状态转换。</p>
+     */
+    @Select("SELECT * FROM mall_order WHERE id = #{orderId} FOR UPDATE")
+    MallOrder selectForUpdateById(@Param("orderId") Long orderId);
+
+    /**
      * 只允许把待取货订单改成已取消。
      *
      * <p>即使 Service 前面已经锁住订单，旧状态条件仍然保留，作为数据库层的第二道并发保护；
@@ -34,4 +43,16 @@ public interface MallOrderMapper extends BaseMapper<MallOrder> {
                       @Param("orderId") Long orderId,
                       @Param("cancelledAt") LocalDateTime cancelledAt,
                       @Param("updatedAt") LocalDateTime updatedAt);
+
+    /**
+     * 只允许把待取货订单改成已取货。
+     *
+     * <p>状态条件是事务锁之外的第二道保护；只有返回 1 才代表本次核销真正完成，
+     * 返回 0 时调用方必须回滚库存并告知前端订单状态已经变化。</p>
+     */
+    @Update("UPDATE mall_order SET status = 'PICKED_UP', picked_up_at = #{pickedUpAt}, "
+            + "updated_at = #{updatedAt} WHERE id = #{orderId} AND status = 'PENDING_PICKUP'")
+    int markPickedUp(@Param("orderId") Long orderId,
+                     @Param("pickedUpAt") LocalDateTime pickedUpAt,
+                     @Param("updatedAt") LocalDateTime updatedAt);
 }

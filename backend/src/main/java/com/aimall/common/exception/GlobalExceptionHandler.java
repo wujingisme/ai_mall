@@ -19,6 +19,7 @@ import com.aimall.coupon.exception.CouponShareException;
 import com.aimall.order.exception.OrderNotFoundException;
 import com.aimall.order.exception.OrderIdempotencyConflictException;
 import com.aimall.order.exception.OrderInventoryConflictException;
+import com.aimall.order.exception.OrderPickupCodeInvalidException;
 import com.aimall.order.exception.OrderRuleException;
 import com.aimall.order.exception.OrderStockInsufficientException;
 import com.aimall.order.exception.OrderStateConflictException;
@@ -190,11 +191,21 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.of("ORDER_STATE_CONFLICT", e.getMessage()));
     }
 
-    /** 释放预留库存时发现商品数据不完整或数量不一致，阻止订单进入半取消状态。 */
+    /**
+     * 订单取消释放库存或后台取货结算库存时发现商品数据不完整、库存数量不一致，
+     * 阻止订单进入“状态已变更但库存未同步”的半完成状态。
+     */
     @ExceptionHandler(OrderInventoryConflictException.class)
     ResponseEntity<ErrorResponse> handleOrderInventoryConflict(OrderInventoryConflictException e) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(ErrorResponse.of("ORDER_INVENTORY_CONFLICT", e.getMessage()));
+    }
+
+    /** 取货码错误时返回稳定的 409，页面可以保留当前订单并要求店员重新输入。 */
+    @ExceptionHandler(OrderPickupCodeInvalidException.class)
+    ResponseEntity<ErrorResponse> handleOrderPickupCodeInvalid(OrderPickupCodeInvalidException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ErrorResponse.of("ORDER_PICKUP_CODE_INVALID", e.getMessage()));
     }
 
     @ExceptionHandler(CustomerNotFoundException.class)
