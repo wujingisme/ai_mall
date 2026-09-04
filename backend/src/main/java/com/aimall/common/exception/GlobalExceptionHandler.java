@@ -17,6 +17,7 @@ import com.aimall.coupon.exception.CouponGrantRuleException;
 import com.aimall.coupon.exception.UserCouponNotFoundException;
 import com.aimall.coupon.exception.CouponShareException;
 import com.aimall.order.exception.OrderNotFoundException;
+import com.aimall.order.exception.OrderIdempotencyConflictException;
 import com.aimall.order.exception.OrderRuleException;
 import com.aimall.order.exception.OrderStockInsufficientException;
 import com.aimall.common.error.ErrorResponse;
@@ -171,6 +172,13 @@ public class GlobalExceptionHandler {
     ResponseEntity<ErrorResponse> handleOrderStock(OrderStockInsufficientException e) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(ErrorResponse.of("ORDER_STOCK_INSUFFICIENT", e.getMessage()));
+    }
+
+    /** 同一个幂等键提交了不同商品参数，返回 409 让前端生成新键后重新提交。 */
+    @ExceptionHandler(OrderIdempotencyConflictException.class)
+    ResponseEntity<ErrorResponse> handleOrderIdempotencyConflict(OrderIdempotencyConflictException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ErrorResponse.of("ORDER_IDEMPOTENCY_CONFLICT", e.getMessage()));
     }
 
     @ExceptionHandler(CustomerNotFoundException.class)

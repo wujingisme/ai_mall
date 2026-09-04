@@ -34,6 +34,13 @@ public class MallOrder {
     private Integer itemQuantity;
     /** 创建订单时的客户端幂等键，第二阶段启用。 */
     private String idempotencyKey;
+    /**
+     * 幂等键对应的规范化商品请求 SHA-256 摘要。
+     *
+     * <p>同一个客户端请求因网络重试再次到达时，摘要可以确认参数完全一致；
+     * 如果幂等键相同但摘要不同，后端必须拒绝，避免一个键代表两笔不同订单。</p>
+     */
+    private String idempotencyPayloadHash;
     /** 取消时间；未取消时为空。 */
     private LocalDateTime cancelledAt;
     /** 完成取货时间；未取货时为空。 */
@@ -63,6 +70,8 @@ public class MallOrder {
     public void setItemQuantity(Integer value) { itemQuantity = value; }
     public String getIdempotencyKey() { return idempotencyKey; }
     public void setIdempotencyKey(String value) { idempotencyKey = value; }
+    public String getIdempotencyPayloadHash() { return idempotencyPayloadHash; }
+    public void setIdempotencyPayloadHash(String value) { idempotencyPayloadHash = value; }
     public LocalDateTime getCancelledAt() { return cancelledAt; }
     public void setCancelledAt(LocalDateTime value) { cancelledAt = value; }
     public LocalDateTime getPickedUpAt() { return pickedUpAt; }
