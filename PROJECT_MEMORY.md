@@ -87,6 +87,7 @@ The React admin theme is configured in `admin/src/main.tsx`, with application CS
 - **代码注释约定**：以后新增或修改前后端代码都必须补充关键中文注释。前端至少说明组件/函数职责、数据流、状态变化、接口参数和非直观的边界处理；后端必须更详细地说明分层职责、请求链路、权限与数据归属、异常路径、事务/并发/幂等、数据库影响，以及关键实现为什么这样选择。注释应解释业务原因，避免只重复代码字面含义。
 
 - **增量提交约定**：用户希望以后代码尽量拆成多次、小范围、可独立验证的本地 Git 提交。推荐按数据库/契约、后端业务、测试、前端页面或文档等边界拆分；每次提交前后说明变更范围和验证结果，默认不推送远程。提交应保持可理解、可回退，避免把多个无关功能塞进一个大提交。
+- **提交信息约定**：提交信息保留并统一使用 Conventional Commits 前缀，例如 `feat:`（功能）、`fix:`（修复）、`test:`（测试）、`docs:`（文档）、`refactor:`（重构）。这是项目协作规范，不是 Git 强制行为；已有历史提交可能沿用旧格式，不为统一格式重写已推送历史。
 
 - **文件路径约束**：后续任何新文件、缓存、构建产物、可视化文件和临时文件均不得写入 C 盘；默认使用 `E:\ai_mall` 或用户明确指定的其他非 C 盘路径。已存在的 C 盘文件不得未经确认删除。
 
@@ -145,6 +146,8 @@ As of 2026-09-04:
 - Do not assume a successful UI route guard secures an API; authorization must remain enforced by Spring Security.
 
 ## Change log
+
+- 2026-09-04 — `workspace/commit-message-convention`: 记录用户确认保留并统一使用 `feat:`、`fix:`、`test:`、`docs:`、`refactor:` 等提交前缀；不重写已有提交历史。
 
 - 2026-09-04 — `order/phase2-order-create`: 新增正式创建订单事务、幂等请求摘要、购物车/商品行锁、条件预留库存、订单与商品快照、一次性取货码响应和同键参数冲突错误；同步数据库迁移、OpenAPI、中文详细注释与 Service/Controller 测试。执行 `20260904_order_create.sql` 本地迁移并确认字段存在；Maven 47 个测试全部通过；在 18080 端口完成注册/登录、加购、下单、重复提交、同键改参数和详情读取真实接口验收，临时数据已清理；未推送远程。
 
