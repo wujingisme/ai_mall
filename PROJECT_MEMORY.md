@@ -105,7 +105,7 @@ The React admin theme is configured in `admin/src/main.tsx`, with application CS
 - Admin product CRUD UI is in `admin/src/pages/ProductsPage.tsx`.
 - Product filtering uses explicit query overrides when search/reset changes page or filter state, avoiding stale React state in immediate requests.
 - Product `PUT /api/v1/products/{id}` is a full replacement of all admin-editable fields. `ProductService` uses `Wrappers.lambdaUpdate(Product.class)` with an explicit `.set(...)` list so optional `imageUrl` and `description` values normalized to `null` are written as SQL `NULL`; do not replace this with default `updateById()` selective-update behavior.
-- Order inventory foundation adds `product.reserved_stock`; consumer/cart/order-preview available stock is `stock - reserved_stock`, while Admin product replacement rejects a total stock lower than existing reservations and returns `PRODUCT_STOCK_CONFLICT`. Formal order creation now reserves inventory transactionally with conditional SQL; consumer cancellation now releases it transactionally, while pickup settlement remains future work.
+- Order inventory foundation adds `product.reserved_stock`; consumer/cart/order-preview available stock is `stock - reserved_stock`, while Admin product replacement rejects a total stock lower than existing reservations and returns `PRODUCT_STOCK_CONFLICT`. Formal order creation now reserves inventory transactionally with conditional SQL; consumer cancellation now releases it transactionally. Admin order list/detail queries are now available; pickup settlement remains future work.
 - JWT parsing is implemented in `backend/src/main/java/com/aimall/auth/service/JwtService.java`.
 - JWT request authentication is implemented under `backend/src/main/java/com/aimall/auth/security/` and registered by `SecurityConfig`.
 - Keep consumer product reads on `/shop/products`; do not expose admin CRUD endpoints for consumer use.
@@ -127,7 +127,7 @@ The React admin theme is configured in `admin/src/main.tsx`, with application CS
 - Batch 3 extension — Coupon sharing and claiming: repository code complete on 2026-08-31; run the one-time migration and complete two-account WeChat acceptance before marking runtime complete. Creator rewards remain deferred.
 - Batch 4 — Automatic new-WeChat-user coupon: not started.
 - Batch 5 — Order coupon locking/redemption/refund behavior: not started and should wait for the order module.
-- Order pickup design — 2026-09-04: added `公共知识/订单功能设计方案.md` for online ordering with offline pickup; excludes logistics and real payment, assumes one pickup point, defines order/item snapshots, reserved inventory, one-time pickup codes, state transitions, APIs, phased implementation, and local acceptance cases. Phase 1 repository implementation is complete: `mall_order`/`order_item` DDL and migration, preview API, and read-only “my orders” APIs are present; the frontend has typed order API clients, cart-to-preview flow, and list/detail pages. Phase 2 inventory foundation, formal creation, and consumer submission UI are implemented; Phase 3 cancellation/release is now also implemented: `product.reserved_stock`, available-stock calculations, Admin stock guard, transactional order creation, item snapshots, one-time pickup-code response, idempotent replay, same-key payload conflict, typed frontend create API, submit-button deduplication, one-time pickup-code display, consumer cancellation, and transactional inventory release. The three order migrations have been executed locally; other environments still need `20260904_order_base.sql`, `20260904_order_inventory.sql`, and `20260904_order_create.sql`. Pickup verification, coupon redemption, and admin order pages remain future work.
+- Order pickup design — 2026-09-04: added `公共知识/订单功能设计方案.md` for online ordering with offline pickup; excludes logistics and real payment, assumes one pickup point, defines order/item snapshots, reserved inventory, one-time pickup codes, state transitions, APIs, phased implementation, and local acceptance cases. Phase 1 repository implementation is complete: `mall_order`/`order_item` DDL and migration, preview API, and read-only “my orders” APIs are present; the frontend has typed order API clients, cart-to-preview flow, and list/detail pages. Phase 2 inventory foundation, formal creation, and consumer submission UI are implemented; Phase 3 cancellation/release is now also implemented; the first Admin substep (backend order list/detail queries with admin authorization) is complete. The three order migrations have been executed locally; other environments still need `20260904_order_base.sql`, `20260904_order_inventory.sql`, and `20260904_order_create.sql`. Admin order pages, pickup verification/settlement, and coupon redemption remain future work.
 - Optional Batch 1.1 — dev-profile-only simulated WeChat login: not started; only needed if real WeChat credentials are unavailable during local development.
 
 ## Verification baseline
@@ -136,7 +136,7 @@ As of 2026-09-04:
 
 - `admin`: `npm run build` succeeds. Vite reports a non-blocking large-chunk warning (the main JS bundle is over 500 kB).
 - `frontend`: `npm run type-check` and `npm run build:mp-weixin` succeed. The order preview page now submits orders, preserves a client idempotency key across network retries, and displays the one-time pickup code; the detail page explains that the code is not returned again.
-- `backend`: Maven test suite succeeds with 55 tests when using the repository-local Maven cache command above. Order Phase 1 through Phase 3 cancellation were runtime-verified against local MySQL on alternate port 18080 after applying the three order migrations: register/login, cart add, order create, idempotent replay, same-key payload conflict, order detail, cancellation, repeated cancellation, and reserved-stock restoration all passed; temporary data and reserved inventory were cleaned up. Port 8080 may still be occupied by an existing local backend process, so alternate-port verification remains useful.
+- `backend`: Maven test suite succeeds with 64 tests when using the repository-local Maven cache command above. Order Phase 1 through Phase 3 cancellation and the Admin order query contract were verified with local tests; the earlier consumer order runtime flow and cancellation flow were verified against local MySQL on alternate port 18080 after applying the three order migrations. Port 8080 may still be occupied by an existing local backend process, so alternate-port verification remains useful.
 
 ## Known follow-ups
 
@@ -146,6 +146,8 @@ As of 2026-09-04:
 - Do not assume a successful UI route guard secures an API; authorization must remain enforced by Spring Security.
 
 ## Change log
+
+- 2026-09-04 — `admin/order-query`: 新增后台订单分页列表和详情查询、客户非敏感摘要、订单快照映射及 Admin 角色权限；同步 OpenAPI、详细中文后端注释和 9 个查询/安全测试。Maven 64 个测试全部通过；未新增数据库表，未推送新增提交。
 
 - 2026-09-04 — `order/phase3-cancellation`: 新增消费者取消订单接口、订单/商品行锁、按订单明细释放预留库存、重复取消幂等和状态冲突处理；禁止删除有预留库存的商品，避免订单外键置空后无法回收库存；同步 OpenAPI、中文注释与测试（含商品更新加锁读取场景）。Maven 55 个测试全部通过；在 18080 端口完成真实创建→取消→重复取消链路，确认预留库存 0→2→0→0，临时数据已清理；未推送新增提交。
 
