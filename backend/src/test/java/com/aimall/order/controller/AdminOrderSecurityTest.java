@@ -38,4 +38,17 @@ class AdminOrderSecurityTest {
         mvc.perform(get("/api/v1/admin/orders"))
                 .andExpect(status().isUnauthorized());
     }
+
+    @Test
+    /**
+     * 取货码核销同样属于后台写操作：即使请求体带有看起来合法的取货码，
+     * 也必须先经过 Admin 认证，不能让匿名请求进入 Controller 或 Service。
+     */
+    void anonymousCannotVerifyAdminOrderPickup() throws Exception {
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .post("/api/v1/admin/orders/1/pickup-verification")
+                        .contentType("application/json")
+                        .content("{\"pickupCode\":\"ABCD2345\"}"))
+                .andExpect(status().isUnauthorized());
+    }
 }

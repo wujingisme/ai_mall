@@ -2,6 +2,7 @@ package com.aimall.order.controller;
 
 import com.aimall.common.exception.GlobalExceptionHandler;
 import com.aimall.order.exception.OrderNotFoundException;
+import com.aimall.order.exception.OrderPickupCodeInvalidException;
 import com.aimall.order.exception.OrderRuleException;
 import com.aimall.order.service.AdminOrderService;
 import com.aimall.order.vo.AdminOrderDetailResponse;
@@ -17,6 +18,7 @@ import java.util.List;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -90,5 +92,52 @@ class AdminOrderControllerTest {
                 .andExpect(jsonPath("$.code").value("ORDER_NOT_FOUND"));
 
         verify(service).get(404L);
+    }
+
+    @Test
+    /** 合法核销请求把路径订单 ID 和请求体取货码交给 Service，并返回已取货状态。 */
+    void verifyPickupUsesOrderIdAndCode() throws Exception {
+        AdminOrderDetailResponse detail = new AdminOrderDetailResponse(
+                "123", "AM202609040001", "7", "customer-7", "小明",
+                "PICKED_UP", "默认取货点", "取货地址", 2,
+                new BigDecimal("24.60"), List.of(), OffsetDateTime.now(), null, OffsetDateTime.now());
+        when(service.verifyPickup(123L, "ABCD2345")).thenReturn(detail);
+
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .post("/api/v1/admin/orders/123/pickup-verification")
+                        .contentType("application/json")
+                        .content("{\"pickupCode\":\"ABCD2345\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("PICKED_UP"))
+                .andExpect(jsonPath("$.pickupCodeHash").doesNotExist());
+
+        verify(service).verifyPickup(123L, "ABCD2345");
+    }
+
+    @Test
+    /** 取货码格式在 Controller 层先校验，格式错误不会进入库存事务。 */
+    void verifyPickupRejectsInvalidCodeFormat() throws Exception {
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .post("/api/v1/admin/orders/123/pickup-verification")
+                        .contentType("application/json")
+                        .content("{\"pickupCode\":\"123\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    /** Service 判定取货码错误时统一映射为 409，方便页面提示店员重新输入。 */
+    void verifyPickupMapsWrongCodeToConflict() throws Exception {
+        when(service.verifyPickup(123L, "ABCD2345"))
+                .thenThrow(new OrderPickupCodeInvalidException());
+
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .post("/api/v1/admin/orders/123/pickup-verification")
+                        .contentType("application/json")
+                        .content("{\"pickupCode\":\"ABCD2345\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("ORDER_PICKUP_CODE_INVALID"));
     }
 }
