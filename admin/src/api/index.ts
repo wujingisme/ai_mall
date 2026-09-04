@@ -6,6 +6,8 @@ export const logout = async (refreshToken: string) => request.post('/auth/logout
 export const getCurrentUser = async () => (await request.get<User>('/auth/me')).data;
 // 后端会再次校验 SUPER_ADMIN 权限，前端隐藏菜单不能替代服务端鉴权。
 export const createAdminAccount = async (payload: AdminAccountPayload) => (await request.post<User>('/admin/accounts', payload)).data;
+/** 当前后台账号自助追加 CUSTOMER 角色；后端只会修改 JWT 对应的本人账号。 */
+export const enableCurrentCustomerRole = async () => (await request.post<User>('/admin/accounts/me/customer-role')).data;
 export const listProducts = async (params: { page: number; pageSize: number; keyword?: string; status?: 0 | 1 }) => (await request.get<ProductPage>('/products', { params })).data;
 export const getProduct = async (id: string) => (await request.get<Product>(`/products/${id}`)).data;
 export const createProduct = async (payload: ProductPayload) => (await request.post<Product>('/products', payload)).data;
