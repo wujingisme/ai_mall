@@ -17,6 +17,18 @@ export interface OrderPreviewRequest {
   items: OrderPreviewItemRequest[]
 }
 
+/** 正式创建订单时提交的商品行；价格、名称、库存仍由后端重新读取。 */
+export interface OrderCreateItemRequest {
+  productId: string
+  quantity: number
+}
+
+/** 正式创建订单请求；一次点击生成一个 clientRequestId，网络重试必须复用它。 */
+export interface OrderCreateRequest {
+  items: OrderCreateItemRequest[]
+  clientRequestId: string
+}
+
 /** 后端计算出的预览商品行。 */
 export interface OrderPreviewItem {
   productId: string
@@ -66,6 +78,13 @@ export interface OrderDetail extends OrderSummary {
   pickedUpAt: string | null
 }
 
+/** 创建订单响应；取货码只在首次成功响应中返回，重试响应会把 pickupCode 置空。 */
+export interface OrderCreateResponse {
+  order: OrderDetail
+  pickupCode: string | null
+  replayed: boolean
+}
+
 /** 后端统一分页结构，前端列表只消费 items 和分页信息。 */
 export interface OrderPage {
   items: OrderSummary[]
@@ -74,4 +93,3 @@ export interface OrderPage {
   total: number
   totalPages: number
 }
-

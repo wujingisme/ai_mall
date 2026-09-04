@@ -1,5 +1,13 @@
 import { request } from '@/utils/request'
-import type { OrderDetail, OrderPage, OrderPreview, OrderPreviewRequest, OrderStatus } from '@/types/order'
+import type {
+  OrderCreateRequest,
+  OrderCreateResponse,
+  OrderDetail,
+  OrderPage,
+  OrderPreview,
+  OrderPreviewRequest,
+  OrderStatus,
+} from '@/types/order'
 
 /**
  * 消费端订单 API 客户端。
@@ -12,6 +20,15 @@ export const orderApi = {
   preview: (data: OrderPreviewRequest) =>
     request<OrderPreview>({ url: '/api/v1/orders/preview', method: 'POST', data }),
 
+  /**
+   * 正式提交订单。
+   *
+   * <p>调用方必须在一次提交生命周期内复用 clientRequestId；request() 即使因令牌刷新
+   * 重放 HTTP 请求，也会继续使用同一个业务幂等键，避免网络重试生成两笔订单。</p>
+   */
+  create: (data: OrderCreateRequest) =>
+    request<OrderCreateResponse>({ url: '/api/v1/orders', method: 'POST', data }),
+
   /** 分页查询当前登录用户的订单；用户归属由后端 JWT 决定。 */
   listMine: (params: { page?: number; pageSize?: number; status?: OrderStatus } = {}) =>
     request<OrderPage>({ url: '/api/v1/me/orders', method: 'GET', data: params }),
@@ -20,4 +37,3 @@ export const orderApi = {
   getMine: (id: string) =>
     request<OrderDetail>({ url: `/api/v1/me/orders/${id}`, method: 'GET' }),
 }
-
