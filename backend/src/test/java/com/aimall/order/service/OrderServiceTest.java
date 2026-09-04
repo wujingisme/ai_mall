@@ -9,8 +9,10 @@ import com.aimall.order.dto.OrderPreviewRequest;
 import com.aimall.order.entity.MallOrder;
 import com.aimall.order.entity.OrderItem;
 import com.aimall.order.exception.OrderIdempotencyConflictException;
+import com.aimall.order.exception.OrderInventoryConflictException;
 import com.aimall.order.exception.OrderRuleException;
 import com.aimall.order.exception.OrderStockInsufficientException;
+import com.aimall.order.exception.OrderStateConflictException;
 import com.aimall.order.mapper.MallOrderMapper;
 import com.aimall.order.mapper.OrderItemMapper;
 import com.aimall.product.entity.Product;
@@ -29,9 +31,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -307,6 +311,69 @@ class OrderServiceTest {
         verifyNoInteractions(orderMapper, cartItemMapper, productMapper, orderItemMapper);
     }
 
+    @Test
+    /** 取消待取货订单会按明细释放预留库存，并返回已取消的订单快照。 */
+    void cancelReleasesReservedStockAndMarksOrderCancelled() {
+        MallOrder pending = order(123L, "AM202609040001", OrderService.STATUS_PENDING_PICKUP);
+        OrderItem item = orderItem(1L, 123L, 7L, 2);
+        when(orderMapper.selectForUpdate(99L, 123L)).thenReturn(pending);
+        when(orderItemMapper.selectList(any())).thenReturn(List.of(item));
+        when(productMapper.selectForUpdate(7L))
+                .thenReturn(product(7L, "AI-001", "智能助手", "12.30", 20, 1));
+        when(productMapper.releaseReservedStock(7L, 2)).thenReturn(1);
+        when(orderMapper.cancelPending(eq(99L), eq(123L), any(LocalDateTime.class), any(LocalDateTime.class)))
+                .thenReturn(1);
+
+        var response = service.cancel(99L, 123L);
+
+        assertEquals(OrderService.STATUS_CANCELLED, response.status());
+        assertEquals(1, response.items().size());
+        // 让 Mockito 校验确实传入了正确商品和数量，而不是释放一个固定值。
+        verify(productMapper).releaseReservedStock(7L, 2);
+        verify(orderMapper).cancelPending(eq(99L), eq(123L), any(LocalDateTime.class), any(LocalDateTime.class));
+    }
+
+    @Test
+    /** 重复取消已经取消的订单只返回快照，不再次锁商品或减少预留库存。 */
+    void cancelAlreadyCancelledOrderIsIdempotent() {
+        MallOrder cancelled = order(123L, "AM202609040001", OrderService.STATUS_CANCELLED);
+        cancelled.setCancelledAt(LocalDateTime.of(2026, 9, 4, 16, 0));
+        when(orderMapper.selectForUpdate(99L, 123L)).thenReturn(cancelled);
+        when(orderItemMapper.selectList(any())).thenReturn(List.of(orderItem(1L, 123L, 7L, 2)));
+
+        var response = service.cancel(99L, 123L);
+
+        assertEquals(OrderService.STATUS_CANCELLED, response.status());
+        verifyNoInteractions(productMapper);
+        verify(orderMapper, never()).cancelPending(any(), any(), any(), any());
+    }
+
+    @Test
+    /** 已取货订单已经完成线下交付，取消请求必须返回状态冲突且不能修改库存。 */
+    void cancelPickedUpOrderRejectsStateChange() {
+        when(orderMapper.selectForUpdate(99L, 123L))
+                .thenReturn(order(123L, "AM202609040001", OrderService.STATUS_PICKED_UP));
+        when(orderItemMapper.selectList(any())).thenReturn(List.of());
+
+        assertThrows(OrderStateConflictException.class, () -> service.cancel(99L, 123L));
+        verifyNoInteractions(productMapper);
+        verify(orderMapper, never()).cancelPending(any(), any(), any(), any());
+    }
+
+    @Test
+    /** 预留库存释放失败时整体回滚，订单不能被改成已取消。 */
+    void cancelRollsBackWhenReservationReleaseFails() {
+        when(orderMapper.selectForUpdate(99L, 123L))
+                .thenReturn(order(123L, "AM202609040001", OrderService.STATUS_PENDING_PICKUP));
+        when(orderItemMapper.selectList(any())).thenReturn(List.of(orderItem(1L, 123L, 7L, 2)));
+        when(productMapper.selectForUpdate(7L))
+                .thenReturn(product(7L, "AI-001", "智能助手", "12.30", 20, 1));
+        when(productMapper.releaseReservedStock(7L, 2)).thenReturn(0);
+
+        assertThrows(OrderInventoryConflictException.class, () -> service.cancel(99L, 123L));
+        verify(orderMapper, never()).cancelPending(any(), any(), any(), any());
+    }
+
     private CartItem cartItem(Long id, Long productId, int quantity) {
         CartItem item = new CartItem();
         item.setId(id);
@@ -326,6 +393,19 @@ class OrderServiceTest {
         product.setReservedStock(0);
         product.setStatus(status);
         return product;
+    }
+
+    private OrderItem orderItem(Long id, Long orderId, Long productId, int quantity) {
+        OrderItem item = new OrderItem();
+        item.setId(id);
+        item.setOrderId(orderId);
+        item.setProductId(productId);
+        item.setSku("AI-001");
+        item.setProductName("智能助手");
+        item.setUnitPrice(new BigDecimal("12.30"));
+        item.setQuantity(quantity);
+        item.setLineAmount(new BigDecimal("24.60"));
+        return item;
     }
 
     private MallOrder order(Long id, String orderNo, String status) {

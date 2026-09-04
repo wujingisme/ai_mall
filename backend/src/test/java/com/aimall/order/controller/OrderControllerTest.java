@@ -3,6 +3,7 @@ package com.aimall.order.controller;
 import com.aimall.common.exception.GlobalExceptionHandler;
 import com.aimall.order.dto.OrderCreateRequest;
 import com.aimall.order.dto.OrderPreviewRequest;
+import com.aimall.order.exception.OrderStateConflictException;
 import com.aimall.order.service.OrderService;
 import com.aimall.order.vo.OrderCreateResponse;
 import com.aimall.order.vo.OrderDetailResponse;
@@ -104,6 +105,33 @@ class OrderControllerTest {
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
 
         verifyNoInteractions(service);
+    }
+
+    @Test
+    /** 合法取消请求使用 JWT 用户 ID 和路径订单 ID 调用 Service，并返回取消后的详情。 */
+    void cancelUsesAuthenticatedUserAndReturnsOrderDetail() throws Exception {
+        OrderDetailResponse detail = new OrderDetailResponse(
+                "123", "AM202609040001", "CANCELLED", "取货点", "取货地址",
+                2, new BigDecimal("24.60"), List.of(), OffsetDateTime.now(), OffsetDateTime.now(), null);
+        when(service.cancel(7L, 123L)).thenReturn(detail);
+
+        mvc.perform(post("/api/v1/me/orders/123/cancellation")
+                        .principal(new UsernamePasswordAuthenticationToken("7", null, List.of())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CANCELLED"));
+
+        verify(service).cancel(7L, 123L);
+    }
+
+    @Test
+    /** 已取货订单取消时返回稳定的状态冲突错误码，方便前端提示用户刷新。 */
+    void cancelMapsStateConflictTo409() throws Exception {
+        when(service.cancel(7L, 123L)).thenThrow(new OrderStateConflictException("当前订单状态不能取消"));
+
+        mvc.perform(post("/api/v1/me/orders/123/cancellation")
+                        .principal(new UsernamePasswordAuthenticationToken("7", null, List.of())))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("ORDER_STATE_CONFLICT"));
     }
 
     @Test

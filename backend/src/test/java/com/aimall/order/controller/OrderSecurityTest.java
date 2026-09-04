@@ -43,4 +43,12 @@ class OrderSecurityTest {
         mvc.perform(get("/api/v1/me/orders"))
                 .andExpect(status().isUnauthorized());
     }
+
+    @Test
+    /** 取消订单也属于用户私有接口，匿名请求不能进入订单 Service。 */
+    void anonymousCannotCancelMyOrder() throws Exception {
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .post("/api/v1/me/orders/1/cancellation"))
+                .andExpect(status().isUnauthorized());
+    }
 }

@@ -34,6 +34,7 @@ class ProductServiceTest {
     /** 空图片和空描述必须作为 SQL NULL 写入，而不能被 updateById 忽略。 */
     void fullUpdateIncludesNullOptionalFields() {
         Product product = product(1L, "OLD", "旧商品", "https://example.com/old.jpg", "旧描述");
+        when(mapper.selectForUpdate(1L)).thenReturn(product);
         when(mapper.selectById(1L)).thenReturn(product);
         when(mapper.selectCount(any())).thenReturn(0L);
         when(mapper.update(isNull(), any(LambdaUpdateWrapper.class))).thenReturn(1);
@@ -62,12 +63,25 @@ class ProductServiceTest {
         Product product = product(1L, "SKU-1", "商品", "https://example.com/old.jpg", "旧描述");
         product.setStock(5);
         product.setReservedStock(3);
+        // update 方法先锁定最新商品行，再读取 reserved_stock；测试也要模拟这次加锁读取。
+        when(mapper.selectForUpdate(1L)).thenReturn(product);
         when(mapper.selectById(1L)).thenReturn(product);
         when(mapper.selectCount(any())).thenReturn(0L);
 
         assertThrows(ProductStockConflictException.class, () -> service.update(1L,
                 new ProductWriteRequest("SKU-1", "商品", new BigDecimal("9.90"), 2, 1, null, null)));
         verify(mapper, never()).update(isNull(), any(LambdaUpdateWrapper.class));
+    }
+
+    @Test
+    /** 有待取货订单预留库存时不能删除商品，否则订单取消时将无法找到商品释放库存。 */
+    void deleteRejectsProductWithReservedStock() {
+        Product product = product(1L, "SKU-1", "商品", null, null);
+        product.setReservedStock(1);
+        when(mapper.selectForUpdate(1L)).thenReturn(product);
+
+        assertThrows(ProductStockConflictException.class, () -> service.delete(1L));
+        verify(mapper, never()).deleteById(1L);
     }
 
     private Product product(Long id, String sku, String name, String imageUrl, String description) {
