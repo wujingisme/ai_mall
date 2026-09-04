@@ -1,8 +1,11 @@
 package com.aimall.order.controller;
 
 import com.aimall.common.exception.GlobalExceptionHandler;
+import com.aimall.order.dto.OrderCreateRequest;
 import com.aimall.order.dto.OrderPreviewRequest;
 import com.aimall.order.service.OrderService;
+import com.aimall.order.vo.OrderCreateResponse;
+import com.aimall.order.vo.OrderDetailResponse;
 import com.aimall.order.vo.OrderPreviewResponse;
 import com.aimall.order.vo.OrderPageResponse;
 import org.junit.jupiter.api.Test;
@@ -12,6 +15,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -62,6 +66,40 @@ class OrderControllerTest {
                         .principal(new UsernamePasswordAuthenticationToken("7", null, List.of()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"items\":[]}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    /** 正式下单响应同时返回订单快照、首次展示的取货码和 replayed 标记。 */
+    void createUsesAuthenticatedUserAndReturnsPickupCode() throws Exception {
+        OrderDetailResponse detail = new OrderDetailResponse(
+                "123", "AM202609040001", "PENDING_PICKUP", "取货点", "取货地址",
+                2, new BigDecimal("24.60"), List.of(), OffsetDateTime.now(), null, null);
+        when(service.create(eq(7L), any(OrderCreateRequest.class)))
+                .thenReturn(new OrderCreateResponse(detail, "ABCD2345", false));
+
+        mvc.perform(post("/api/v1/orders")
+                        .principal(new UsernamePasswordAuthenticationToken("7", null, List.of()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"items\":[{\"productId\":\"3\",\"quantity\":2}],\"clientRequestId\":\"client-1\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.order.id").value("123"))
+                .andExpect(jsonPath("$.pickupCode").value("ABCD2345"))
+                .andExpect(jsonPath("$.replayed").value(false));
+
+        verify(service).create(eq(7L), any(OrderCreateRequest.class));
+    }
+
+    @Test
+    /** 缺少幂等键时在 Controller 层直接返回 400，不让 Service 进入库存事务。 */
+    void createRejectsMissingIdempotencyKey() throws Exception {
+        mvc.perform(post("/api/v1/orders")
+                        .principal(new UsernamePasswordAuthenticationToken("7", null, List.of()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"items\":[{\"productId\":\"3\",\"quantity\":2}]}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
 

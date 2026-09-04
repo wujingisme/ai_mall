@@ -2,10 +2,13 @@ package com.aimall.order.service;
 
 import com.aimall.cart.entity.CartItem;
 import com.aimall.cart.mapper.CartItemMapper;
+import com.aimall.order.dto.OrderCreateItemRequest;
+import com.aimall.order.dto.OrderCreateRequest;
 import com.aimall.order.dto.OrderPreviewItemRequest;
 import com.aimall.order.dto.OrderPreviewRequest;
 import com.aimall.order.entity.MallOrder;
 import com.aimall.order.entity.OrderItem;
+import com.aimall.order.exception.OrderIdempotencyConflictException;
 import com.aimall.order.exception.OrderRuleException;
 import com.aimall.order.exception.OrderStockInsufficientException;
 import com.aimall.order.mapper.MallOrderMapper;
@@ -26,7 +29,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -178,6 +184,127 @@ class OrderServiceTest {
         assertEquals("下单时名称", response.items().get(0).productName());
         assertEquals(new BigDecimal("24.60"), response.items().get(0).lineAmount());
         assertNull(response.cancelledAt());
+    }
+
+    @Test
+    /**
+     * 正式下单会以商品表快照计算金额、预留库存、写订单明细，并只删除本次提交的购物车商品。
+     * 这个测试故意保留一个未选商品，用来防止实现误删整个购物车。
+     */
+    void createReservesStockSnapshotsOrderAndClearsSelectedCart() {
+        OrderCreateRequest request = new OrderCreateRequest(
+                List.of(new OrderCreateItemRequest(7L, 2)), "client-1");
+        Product product = product(7L, "AI-001", "智能助手", "12.30", 20, 1);
+        when(orderMapper.selectOne(any())).thenReturn(null);
+        when(cartItemMapper.selectForUpdate(99L, 7L)).thenReturn(cartItem(1L, 7L, 5));
+        when(productMapper.selectForUpdate(7L)).thenReturn(product);
+        when(productMapper.reserveStock(7L, 2)).thenReturn(1);
+        doAnswer(invocation -> {
+            MallOrder saved = invocation.getArgument(0);
+            saved.setId(123L);
+            return 1;
+        }).when(orderMapper).insert(any(MallOrder.class));
+        when(orderItemMapper.insert(any(OrderItem.class))).thenReturn(1);
+        when(cartItemMapper.delete(any())).thenReturn(1);
+
+        var response = service.create(99L, request);
+
+        assertEquals(false, response.replayed());
+        assertEquals(8, response.pickupCode().length());
+        assertEquals("123", response.order().id());
+        assertEquals(OrderService.STATUS_PENDING_PICKUP, response.order().status());
+        assertEquals(new BigDecimal("24.60"), response.order().totalAmount());
+        assertEquals(1, response.order().items().size());
+        assertEquals("智能助手", response.order().items().get(0).productName());
+        verify(productMapper).reserveStock(7L, 2);
+        verify(orderItemMapper).insert(any(OrderItem.class));
+        verify(cartItemMapper).delete(any());
+    }
+
+    @Test
+    /** 同一个幂等键重试时复用原订单，不再次读取购物车、锁商品或增加预留库存。 */
+    void createReplaysSameIdempotentRequestWithoutReservingAgain() {
+        OrderCreateRequest request = new OrderCreateRequest(
+                List.of(new OrderCreateItemRequest(7L, 2)), "retry-key");
+        MallOrder[] stored = new MallOrder[1];
+        when(orderMapper.selectOne(any())).thenAnswer(invocation -> stored[0]);
+        when(cartItemMapper.selectForUpdate(99L, 7L)).thenReturn(cartItem(1L, 7L, 5));
+        when(productMapper.selectForUpdate(7L))
+                .thenReturn(product(7L, "AI-001", "智能助手", "12.30", 20, 1));
+        when(productMapper.reserveStock(7L, 2)).thenReturn(1);
+        doAnswer(invocation -> {
+            MallOrder saved = invocation.getArgument(0);
+            saved.setId(123L);
+            stored[0] = saved;
+            return 1;
+        }).when(orderMapper).insert(any(MallOrder.class));
+        when(orderItemMapper.insert(any(OrderItem.class))).thenReturn(1);
+        when(cartItemMapper.delete(any())).thenReturn(1);
+
+        var first = service.create(99L, request);
+        OrderItem snapshot = new OrderItem();
+        snapshot.setId(1L);
+        snapshot.setOrderId(123L);
+        snapshot.setProductId(7L);
+        snapshot.setSku("AI-001");
+        snapshot.setProductName("智能助手");
+        snapshot.setUnitPrice(new BigDecimal("12.30"));
+        snapshot.setQuantity(2);
+        snapshot.setLineAmount(new BigDecimal("24.60"));
+        clearInvocations(cartItemMapper, productMapper, orderItemMapper);
+        when(orderItemMapper.selectList(any())).thenReturn(List.of(snapshot));
+
+        var replay = service.create(99L, request);
+
+        assertEquals(false, first.replayed());
+        assertEquals(true, replay.replayed());
+        assertNull(replay.pickupCode());
+        assertEquals("123", replay.order().id());
+        assertEquals(1, replay.order().items().size());
+        verifyNoInteractions(cartItemMapper, productMapper);
+    }
+
+    @Test
+    /** 相同幂等键却提交不同商品数量时必须报冲突，不能把一个键复用成另一笔订单。 */
+    void createRejectsSameIdempotencyKeyWithDifferentPayload() {
+        OrderCreateRequest firstRequest = new OrderCreateRequest(
+                List.of(new OrderCreateItemRequest(7L, 1)), "same-key");
+        OrderCreateRequest differentRequest = new OrderCreateRequest(
+                List.of(new OrderCreateItemRequest(7L, 2)), "same-key");
+        MallOrder existing = order(123L, "AM202609040001", OrderService.STATUS_PENDING_PICKUP);
+        existing.setIdempotencyKey("same-key");
+        existing.setIdempotencyPayloadHash("not-the-request-hash");
+        when(orderMapper.selectOne(any())).thenReturn(existing);
+
+        assertThrows(OrderIdempotencyConflictException.class,
+                () -> service.create(99L, firstRequest));
+        assertThrows(OrderIdempotencyConflictException.class,
+                () -> service.create(99L, differentRequest));
+        verifyNoInteractions(cartItemMapper, productMapper, orderItemMapper);
+    }
+
+    @Test
+    /** 库存条件更新返回 0 时视为并发库存冲突，订单主表不能被写入。 */
+    void createRejectsWhenReservationUpdateFails() {
+        when(orderMapper.selectOne(any())).thenReturn(null);
+        when(cartItemMapper.selectForUpdate(99L, 7L)).thenReturn(cartItem(1L, 7L, 5));
+        when(productMapper.selectForUpdate(7L))
+                .thenReturn(product(7L, "AI-001", "智能助手", "12.30", 20, 1));
+        when(productMapper.reserveStock(7L, 2)).thenReturn(0);
+
+        assertThrows(OrderStockInsufficientException.class,
+                () -> service.create(99L, new OrderCreateRequest(
+                        List.of(new OrderCreateItemRequest(7L, 2)), "stock-key")));
+        verifyNoInteractions(orderItemMapper);
+    }
+
+    @Test
+    /** 即使绕过 Controller 直接调用 Service，空幂等键也不能进入数据库事务流程。 */
+    void createRejectsBlankIdempotencyKey() {
+        assertThrows(OrderRuleException.class,
+                () -> service.create(99L, new OrderCreateRequest(
+                        List.of(new OrderCreateItemRequest(7L, 1)), "   ")));
+        verifyNoInteractions(orderMapper, cartItemMapper, productMapper, orderItemMapper);
     }
 
     private CartItem cartItem(Long id, Long productId, int quantity) {
