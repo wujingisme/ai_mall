@@ -54,6 +54,9 @@ public class SecurityConfig {
                                 .hasAnyRole("SUPER_ADMIN", "ADMIN", "OPERATOR")
                         .requestMatchers("/api/v1/admin/customers/**")
                                 .hasAnyRole("SUPER_ADMIN", "ADMIN", "OPERATOR")
+                        // 订单列表和详情包含客户与订单经营数据，只允许后台管理角色访问。
+                        .requestMatchers("/api/v1/admin/orders/**")
+                                .hasAnyRole("SUPER_ADMIN", "ADMIN", "OPERATOR")
                         .requestMatchers("/api/v1/products/**").hasAnyRole("SUPER_ADMIN", "ADMIN", "OPERATOR")
                         .anyRequest().authenticated())
                 .exceptionHandling(errors -> errors.authenticationEntryPoint((request, response, exception) -> {

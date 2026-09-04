@@ -165,6 +165,42 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/admin/orders:
+    get:
+      tags: [Orders]
+      summary: 后台分页查询订单
+      operationId: listAdminOrders
+      description: 管理员按状态、订单号或客户 ID 查询全部订单；响应只包含客户展示摘要和订单快照字段，不返回密码、微信身份或取货码哈希。
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: pageSize, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/OrderStatus' } }
+        - { name: orderNo, in: query, schema: { type: string, maxLength: 40 } }
+        - { name: userId, in: query, schema: { type: string, pattern: '^[1-9][0-9]*$' } }
+      responses:
+        '200':
+          description: 查询成功
+          content: { application/json: { schema: { $ref: '#/components/schemas/AdminOrderPage' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/admin/orders/{id}:
+    get:
+      tags: [Orders]
+      summary: 后台查询订单详情
+      operationId: getAdminOrder
+      description: 查询订单主表和下单时保存的商品快照；取货码只在后续核销接口中提交验证，详情不会返回明文或哈希。
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, pattern: '^[1-9][0-9]*$' } }
+      responses:
+        '200':
+          description: 查询成功
+          content: { application/json: { schema: { $ref: '#/components/schemas/AdminOrderDetail' } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /api/v1/shop/products:
     get:
       tags: [Shop]
@@ -1057,6 +1093,50 @@ components:
       required: [items, page, pageSize, total, totalPages]
       properties:
         items: { type: array, items: { $ref: '#/components/schemas/OrderSummary' } }
+        page: { type: integer, minimum: 1 }
+        pageSize: { type: integer, minimum: 1 }
+        total: { type: integer, format: int64, minimum: 0 }
+        totalPages: { type: integer, format: int64, minimum: 0 }
+    AdminOrderSummary:
+      type: object
+      additionalProperties: false
+      required: [id, orderNo, userId, status, pickupLocationName, itemQuantity, totalAmount, createdAt]
+      properties:
+        id: { type: string, pattern: '^[1-9][0-9]*$' }
+        orderNo: { type: string }
+        userId: { type: string, nullable: true }
+        username: { type: string, nullable: true, description: 客户账号；后台展示用途，不是权限依据 }
+        displayName: { type: string, nullable: true, description: 客户展示名称 }
+        status: { $ref: '#/components/schemas/OrderStatus' }
+        pickupLocationName: { type: string }
+        itemQuantity: { type: integer, minimum: 0 }
+        totalAmount: { type: number, minimum: 0, multipleOf: 0.01 }
+        createdAt: { type: string, format: date-time }
+    AdminOrderDetail:
+      type: object
+      additionalProperties: false
+      required: [id, orderNo, userId, status, pickupLocationName, pickupLocationAddress, itemQuantity, totalAmount, items, createdAt]
+      properties:
+        id: { type: string, pattern: '^[1-9][0-9]*$' }
+        orderNo: { type: string }
+        userId: { type: string, nullable: true }
+        username: { type: string, nullable: true }
+        displayName: { type: string, nullable: true }
+        status: { $ref: '#/components/schemas/OrderStatus' }
+        pickupLocationName: { type: string }
+        pickupLocationAddress: { type: string }
+        itemQuantity: { type: integer, minimum: 0 }
+        totalAmount: { type: number, minimum: 0, multipleOf: 0.01 }
+        items: { type: array, minItems: 1, items: { $ref: '#/components/schemas/OrderItem' } }
+        createdAt: { type: string, format: date-time }
+        cancelledAt: { type: string, format: date-time, nullable: true }
+        pickedUpAt: { type: string, format: date-time, nullable: true }
+    AdminOrderPage:
+      type: object
+      additionalProperties: false
+      required: [items, page, pageSize, total, totalPages]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/AdminOrderSummary' } }
         page: { type: integer, minimum: 1 }
         pageSize: { type: integer, minimum: 1 }
         total: { type: integer, format: int64, minimum: 0 }
