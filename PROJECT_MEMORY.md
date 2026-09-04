@@ -127,7 +127,7 @@ The React admin theme is configured in `admin/src/main.tsx`, with application CS
 - Batch 3 extension — Coupon sharing and claiming: repository code complete on 2026-08-31; run the one-time migration and complete two-account WeChat acceptance before marking runtime complete. Creator rewards remain deferred.
 - Batch 4 — Automatic new-WeChat-user coupon: not started.
 - Batch 5 — Order coupon locking/redemption/refund behavior: not started and should wait for the order module.
-- Order pickup design — 2026-09-04: added `公共知识/订单功能设计方案.md` for online ordering with offline pickup; excludes logistics and real payment, assumes one pickup point, defines order/item snapshots, reserved inventory, one-time pickup codes, state transitions, APIs, phased implementation, and local acceptance cases. Phase 1 repository implementation is complete: `mall_order`/`order_item` DDL and migration, preview API, and read-only “my orders” APIs are present; the frontend has typed order API clients, cart-to-preview flow, and list/detail pages. Phase 2 inventory foundation and formal creation are now implemented: `product.reserved_stock`, available-stock calculations, Admin stock guard, transactional order creation, item snapshots, one-time pickup-code response, idempotent replay, and same-key payload conflict. The three order migrations have been executed locally; other environments still need `20260904_order_base.sql`, `20260904_order_inventory.sql`, and `20260904_order_create.sql`. Cancellation/release, pickup verification, coupon redemption, and admin order pages remain future work.
+- Order pickup design — 2026-09-04: added `公共知识/订单功能设计方案.md` for online ordering with offline pickup; excludes logistics and real payment, assumes one pickup point, defines order/item snapshots, reserved inventory, one-time pickup codes, state transitions, APIs, phased implementation, and local acceptance cases. Phase 1 repository implementation is complete: `mall_order`/`order_item` DDL and migration, preview API, and read-only “my orders” APIs are present; the frontend has typed order API clients, cart-to-preview flow, and list/detail pages. Phase 2 inventory foundation, formal creation, and consumer submission UI are now implemented: `product.reserved_stock`, available-stock calculations, Admin stock guard, transactional order creation, item snapshots, one-time pickup-code response, idempotent replay, same-key payload conflict, typed frontend create API, submit-button deduplication, and one-time pickup-code display. The three order migrations have been executed locally; other environments still need `20260904_order_base.sql`, `20260904_order_inventory.sql`, and `20260904_order_create.sql`. Cancellation/release, pickup verification, coupon redemption, and admin order pages remain future work.
 - Optional Batch 1.1 — dev-profile-only simulated WeChat login: not started; only needed if real WeChat credentials are unavailable during local development.
 
 ## Verification baseline
@@ -135,8 +135,8 @@ The React admin theme is configured in `admin/src/main.tsx`, with application CS
 As of 2026-09-04:
 
 - `admin`: `npm run build` succeeds. Vite reports a non-blocking large-chunk warning (the main JS bundle is over 500 kB).
-- `frontend`: `npm run type-check` and `npm run build:mp-weixin` succeed.
-- `backend`: Maven test suite succeeds with 46 tests when using the repository-local Maven cache command above. Order Phase 1 and Phase 2 formal creation were runtime-verified against local MySQL on alternate port 18080 after applying the three order migrations: register/login, cart add, order create, idempotent replay, same-key payload conflict, and order detail all passed; temporary data and reserved inventory were cleaned up. Port 8080 may still be occupied by an existing local backend process, so alternate-port verification remains useful.
+- `frontend`: `npm run type-check` and `npm run build:mp-weixin` succeed. The order preview page now submits orders, preserves a client idempotency key across network retries, and displays the one-time pickup code; the detail page explains that the code is not returned again.
+- `backend`: Maven test suite succeeds with 47 tests when using the repository-local Maven cache command above. Order Phase 1 and Phase 2 formal creation were runtime-verified against local MySQL on alternate port 18080 after applying the three order migrations: register/login, cart add, order create, idempotent replay, same-key payload conflict, and order detail all passed; temporary data and reserved inventory were cleaned up. Port 8080 may still be occupied by an existing local backend process, so alternate-port verification remains useful.
 
 ## Known follow-ups
 
@@ -147,9 +147,11 @@ As of 2026-09-04:
 
 ## Change log
 
+- 2026-09-04 — `frontend/order/create`: 为订单确认页接入正式创建订单 API，增加客户端幂等键、提交中禁用、库存/购物车变化后刷新、首次取货码展示和订单入口；同步订单类型、API 客户端、订单详情提示及公共知识文档。`npm run type-check` 和 `npm run build:mp-weixin` 均通过；未执行微信 DevTools 真机验收。
+
 - 2026-09-04 — `workspace/commit-message-convention`: 记录用户确认保留并统一使用 `feat:`、`fix:`、`test:`、`docs:`、`refactor:` 等提交前缀；不重写已有提交历史。
 
-- 2026-09-04 — `order/phase2-order-create`: 新增正式创建订单事务、幂等请求摘要、购物车/商品行锁、条件预留库存、订单与商品快照、一次性取货码响应和同键参数冲突错误；同步数据库迁移、OpenAPI、中文详细注释与 Service/Controller 测试。执行 `20260904_order_create.sql` 本地迁移并确认字段存在；Maven 47 个测试全部通过；在 18080 端口完成注册/登录、加购、下单、重复提交、同键改参数和详情读取真实接口验收，临时数据已清理；未推送远程。
+- 2026-09-04 — `order/phase2-order-create`: 新增正式创建订单事务、幂等请求摘要、购物车/商品行锁、条件预留库存、订单与商品快照、一次性取货码响应和同键参数冲突错误；同步数据库迁移、OpenAPI、中文详细注释与 Service/Controller 测试。执行 `20260904_order_create.sql` 本地迁移并确认字段存在；Maven 47 个测试全部通过；在 18080 端口完成注册/登录、加购、下单、重复提交、同键改参数和详情读取真实接口验收，临时数据已清理；该提交后来已与远程 `main` 同步，本次步骤未显式执行 push。
 
 - 2026-09-04 — `order/phase2-inventory-foundation`: 新增 `product.reserved_stock` 字段及 `reserved_stock <= stock` 数据库约束；购物车、消费端商品、订单预览统一按可售库存计算；Admin 修改商品总库存低于已预留数量时返回 `PRODUCT_STOCK_CONFLICT`；补充库存、预留、Admin 冲突和异常契约测试。执行本地 migration 并检查字段/约束，Maven 40 个测试全部通过，使用 18080 端口启动后端并成功读取商品列表；线上迁移尚未执行。
 
@@ -163,7 +165,7 @@ As of 2026-09-04:
 
 - 2026-09-04 — `frontend/order/api`: 新增 `frontend/src/types/order.ts` 和 `frontend/src/api/order.ts`，为订单预览、我的订单列表和详情提供带中文关键注释的类型与请求封装；不改变页面行为。执行 `npm run type-check` 通过。
 
-- 2026-09-04 — `frontend/order/preview`: 新增订单预览页，购物车“去结算”改为进入预览，补充订单页路由和登录保护；页面先读取购物车，再只提交商品 ID/数量给后端计算最新金额，并展示固定线下取货点；暂不创建订单、支付或锁库存。执行 `npm run type-check` 通过。
+- 2026-09-04 — `frontend/order/preview`: 新增订单预览页，购物车“去结算”改为进入预览，补充订单页路由和登录保护；页面先读取购物车，再只提交商品 ID/数量给后端计算最新金额，并展示固定线下取货点；在当时阶段暂不创建订单、支付或锁库存。执行 `npm run type-check` 通过。
 
 - 2026-09-04 — `frontend/order/list-detail`: 新增我的订单列表和详情页，个人中心订单入口支持全部/待取货/已取货/已取消筛选，补充订单详情和路由登录保护；页面仅展示后端订单与商品快照，不添加取消、取货码或支付操作。执行 `npm run type-check` 和 `npm run build:mp-weixin` 均通过。
 
