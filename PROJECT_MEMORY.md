@@ -125,16 +125,16 @@ The React admin theme is configured in `admin/src/main.tsx`, with application CS
 - Batch 3 extension — Coupon sharing and claiming: repository code complete on 2026-08-31; run the one-time migration and complete two-account WeChat acceptance before marking runtime complete. Creator rewards remain deferred.
 - Batch 4 — Automatic new-WeChat-user coupon: not started.
 - Batch 5 — Order coupon locking/redemption/refund behavior: not started and should wait for the order module.
-- Order pickup design — 2026-09-04: added `公共知识/订单功能设计方案.md` for online ordering with offline pickup; excludes logistics and real payment, assumes one pickup point, defines order/item snapshots, reserved inventory, one-time pickup codes, state transitions, APIs, phased implementation, and local acceptance cases. Phase 1 repository implementation is now complete: `mall_order`/`order_item` DDL and migration, preview API, and read-only “my orders” APIs are present; the frontend now has typed order API clients, cart-to-preview flow, and list/detail pages. Real local acceptance still requires executing the migration against MySQL. Order creation, inventory reservation, pickup-code verification, coupons, and admin pages remain future phases.
+- Order pickup design — 2026-09-04: added `公共知识/订单功能设计方案.md` for online ordering with offline pickup; excludes logistics and real payment, assumes one pickup point, defines order/item snapshots, reserved inventory, one-time pickup codes, state transitions, APIs, phased implementation, and local acceptance cases. Phase 1 repository implementation is now complete: `mall_order`/`order_item` DDL and migration, preview API, and read-only “my orders” APIs are present; the frontend now has typed order API clients, cart-to-preview flow, and list/detail pages. Local acceptance on this machine is complete for registration/login, cart, preview amount/pickup point, empty validation, missing-order 404, anonymous 401, and cleanup; other environments still need to execute the migration. Order creation, inventory reservation, pickup-code verification, coupons, and admin pages remain future phases.
 - Optional Batch 1.1 — dev-profile-only simulated WeChat login: not started; only needed if real WeChat credentials are unavailable during local development.
 
 ## Verification baseline
 
-As of 2026-08-31:
+As of 2026-09-04:
 
 - `admin`: `npm run build` succeeds. Vite reports a non-blocking large-chunk warning (the main JS bundle is over 500 kB).
 - `frontend`: `npm run type-check` and `npm run build:mp-weixin` succeed.
-- `backend`: Maven test suite succeeds with 21 tests when using the repository-local Maven cache command above.
+- `backend`: Maven test suite succeeds with 34 tests when using the repository-local Maven cache command above. Order Phase 1 was also runtime-verified against local MySQL after applying its migration; no order creation or inventory-lock behavior exists yet.
 
 ## Known follow-ups
 
@@ -144,6 +144,8 @@ As of 2026-08-31:
 - Do not assume a successful UI route guard secures an API; authorization must remain enforced by Spring Security.
 
 ## Change log
+
+- 2026-09-04 — `order/phase1-local-acceptance`: 在本机 MySQL 执行 `database/migrations/20260904_order_base.sql` 并确认 `mall_order`、`order_item` 创建成功；启动后端完成注册/登录、加入购物车、订单预览、默认取货点、空请求 400、不存在订单 404、匿名接口 401 验收；执行 Maven 34 个测试全部通过。验收用临时账号和购物车数据已清理，未实现订单创建、库存锁定、支付或物流。
 
 - 2026-09-04 — `workspace/git-ssh`: 修复本机 GitHub SSH `known_hosts` 过期主机记录，确认现有 `id_rsa.pub` 已加入 GitHub 后，将本仓库 `origin` 切换为 `git@github.com:wujingisme/ai_mall.git`，并在本仓库配置使用 `id_rsa`。SSH 只读连接和 `git push origin main` 均成功，结果为 `Everything up-to-date`；未记录私钥或其他敏感凭据。
 
