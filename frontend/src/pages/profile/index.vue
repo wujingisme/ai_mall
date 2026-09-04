@@ -6,6 +6,7 @@ import { authApi } from '@/api/auth'
 import { clearAuthSession, getCurrentUser, getRefreshToken } from '@/utils/auth-storage'
 import { navigateToLogin, ROUTES } from '@/utils/navigation'
 import { resetSessionValidation, validateCurrentUser } from '@/utils/session-validation'
+import type { OrderStatus } from '@/types/order'
 
 const user = ref<CurrentUser | null>(null)
 const avatarText = computed(() => (user.value?.displayName || user.value?.username || 'A').slice(0, 1).toUpperCase())
@@ -24,6 +25,12 @@ function goLogin() {
 }
 function comingSoon() { uni.showToast({ title: '功能即将上线', icon: 'none' }) }
 function goCoupons() { user.value ? uni.navigateTo({ url: ROUTES.coupons }) : navigateToLogin(ROUTES.coupons) }
+/** 个人中心只负责导航；订单列表会再次通过后端接口确认当前用户身份。 */
+function openOrders(status?: OrderStatus) {
+  const query = status ? `?status=${status}` : ''
+  const target = `${ROUTES.orderList}${query}`
+  user.value ? uni.navigateTo({ url: target }) : navigateToLogin(target)
+}
 
 function logout() {
   uni.showModal({
@@ -49,7 +56,7 @@ function logout() {
 <template>
   <view class="page">
     <view class="profile" @click="goLogin"><view class="avatar">{{ avatarText }}</view><view><text class="name">{{ user?.displayName || user?.username || '登录 / 注册' }}</text><text class="hint">{{ user ? `账号：${user.username}` : '登录后享受完整购物体验' }}</text></view><text v-if="!user" class="arrow">›</text></view>
-    <view class="orders"><view class="heading"><text>我的订单</text><text @click="comingSoon">全部订单 ›</text></view><view class="order-grid"><view @click="comingSoon"><text>◇</text><text>待付款</text></view><view @click="comingSoon"><text>▱</text><text>待发货</text></view><view @click="comingSoon"><text>▤</text><text>待收货</text></view><view @click="comingSoon"><text>☆</text><text>待评价</text></view></view></view>
+    <view class="orders"><view class="heading" @click="openOrders()"><text>我的订单</text><text>全部订单 ›</text></view><view class="order-grid"><view @click="openOrders()"><text>◇</text><text>全部订单</text></view><view @click="openOrders('PENDING_PICKUP')"><text>▱</text><text>待取货</text></view><view @click="openOrders('PICKED_UP')"><text>▤</text><text>已取货</text></view><view @click="openOrders('CANCELLED')"><text>☆</text><text>已取消</text></view></view></view>
     <view class="menu"><view @click="comingSoon"><text>收货地址</text><text>›</text></view><view @click="goCoupons"><text>优惠券</text><text>›</text></view><view @click="comingSoon"><text>收藏商品</text><text>›</text></view><view @click="comingSoon"><text>联系客服</text><text>›</text></view></view>
     <button v-if="user" class="logout-button" @click="logout">退出登录</button>
   </view>

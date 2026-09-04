@@ -5,6 +5,8 @@ export const ROUTES = {
   productDetail: '/pages/product/detail',
   cart: '/pages/cart/index',
   orderPreview: '/pages/order/preview',
+  orderList: '/pages/order/list',
+  orderDetail: '/pages/order/detail',
   profile: '/pages/profile/index',
   coupons: '/pages/coupon/list',
   couponDetail: '/pages/coupon/detail',
