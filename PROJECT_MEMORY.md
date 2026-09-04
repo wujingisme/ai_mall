@@ -104,7 +104,7 @@ The React admin theme is configured in `admin/src/main.tsx`, with application CS
 - Admin product CRUD UI is in `admin/src/pages/ProductsPage.tsx`.
 - Product filtering uses explicit query overrides when search/reset changes page or filter state, avoiding stale React state in immediate requests.
 - Product `PUT /api/v1/products/{id}` is a full replacement of all admin-editable fields. `ProductService` uses `Wrappers.lambdaUpdate(Product.class)` with an explicit `.set(...)` list so optional `imageUrl` and `description` values normalized to `null` are written as SQL `NULL`; do not replace this with default `updateById()` selective-update behavior.
-- Order inventory foundation adds `product.reserved_stock`; consumer/cart/order-preview available stock is `stock - reserved_stock`, while Admin product replacement rejects a total stock lower than existing reservations and returns `PRODUCT_STOCK_CONFLICT`. Actual reservation happens only in the future order-creation transaction.
+- Order inventory foundation adds `product.reserved_stock`; consumer/cart/order-preview available stock is `stock - reserved_stock`, while Admin product replacement rejects a total stock lower than existing reservations and returns `PRODUCT_STOCK_CONFLICT`. Formal order creation now reserves inventory transactionally with conditional SQL; cancellation/release and pickup settlement remain future work.
 - JWT parsing is implemented in `backend/src/main/java/com/aimall/auth/service/JwtService.java`.
 - JWT request authentication is implemented under `backend/src/main/java/com/aimall/auth/security/` and registered by `SecurityConfig`.
 - Keep consumer product reads on `/shop/products`; do not expose admin CRUD endpoints for consumer use.
@@ -126,7 +126,7 @@ The React admin theme is configured in `admin/src/main.tsx`, with application CS
 - Batch 3 extension — Coupon sharing and claiming: repository code complete on 2026-08-31; run the one-time migration and complete two-account WeChat acceptance before marking runtime complete. Creator rewards remain deferred.
 - Batch 4 — Automatic new-WeChat-user coupon: not started.
 - Batch 5 — Order coupon locking/redemption/refund behavior: not started and should wait for the order module.
-- Order pickup design — 2026-09-04: added `公共知识/订单功能设计方案.md` for online ordering with offline pickup; excludes logistics and real payment, assumes one pickup point, defines order/item snapshots, reserved inventory, one-time pickup codes, state transitions, APIs, phased implementation, and local acceptance cases. Phase 1 repository implementation is complete: `mall_order`/`order_item` DDL and migration, preview API, and read-only “my orders” APIs are present; the frontend has typed order API clients, cart-to-preview flow, and list/detail pages. Phase 2 first sub-step is complete: `product.reserved_stock`, available-stock calculations, and the Admin stock guard are implemented and migrated locally. Local acceptance covers registration/login, cart, preview amount/pickup point, empty validation, missing-order 404, anonymous 401, and cleanup; other environments still need to execute both order migrations. Order creation, inventory reservation, pickup-code verification, coupons, and admin order pages remain future work.
+- Order pickup design — 2026-09-04: added `公共知识/订单功能设计方案.md` for online ordering with offline pickup; excludes logistics and real payment, assumes one pickup point, defines order/item snapshots, reserved inventory, one-time pickup codes, state transitions, APIs, phased implementation, and local acceptance cases. Phase 1 repository implementation is complete: `mall_order`/`order_item` DDL and migration, preview API, and read-only “my orders” APIs are present; the frontend has typed order API clients, cart-to-preview flow, and list/detail pages. Phase 2 inventory foundation and formal creation are now implemented: `product.reserved_stock`, available-stock calculations, Admin stock guard, transactional order creation, item snapshots, one-time pickup-code response, idempotent replay, and same-key payload conflict. The three order migrations have been executed locally; other environments still need `20260904_order_base.sql`, `20260904_order_inventory.sql`, and `20260904_order_create.sql`. Cancellation/release, pickup verification, coupon redemption, and admin order pages remain future work.
 - Optional Batch 1.1 — dev-profile-only simulated WeChat login: not started; only needed if real WeChat credentials are unavailable during local development.
 
 ## Verification baseline
@@ -135,7 +135,7 @@ As of 2026-09-04:
 
 - `admin`: `npm run build` succeeds. Vite reports a non-blocking large-chunk warning (the main JS bundle is over 500 kB).
 - `frontend`: `npm run type-check` and `npm run build:mp-weixin` succeed.
-- `backend`: Maven test suite succeeds with 40 tests when using the repository-local Maven cache command above. Order Phase 1 was runtime-verified against local MySQL after applying its migration, and the Phase 2 inventory foundation migration/consumer endpoint startup was verified locally; no order creation or inventory-lock transaction exists yet.
+- `backend`: Maven test suite succeeds with 46 tests when using the repository-local Maven cache command above. Order Phase 1 and Phase 2 formal creation were runtime-verified against local MySQL on alternate port 18080 after applying the three order migrations: register/login, cart add, order create, idempotent replay, same-key payload conflict, and order detail all passed; temporary data and reserved inventory were cleaned up. Port 8080 may still be occupied by an existing local backend process, so alternate-port verification remains useful.
 
 ## Known follow-ups
 
@@ -145,6 +145,8 @@ As of 2026-09-04:
 - Do not assume a successful UI route guard secures an API; authorization must remain enforced by Spring Security.
 
 ## Change log
+
+- 2026-09-04 — `order/phase2-order-create`: 新增正式创建订单事务、幂等请求摘要、购物车/商品行锁、条件预留库存、订单与商品快照、一次性取货码响应和同键参数冲突错误；同步数据库迁移、OpenAPI、中文详细注释与 Service/Controller 测试。执行 `20260904_order_create.sql` 本地迁移并确认字段存在；Maven 47 个测试全部通过；在 18080 端口完成注册/登录、加购、下单、重复提交、同键改参数和详情读取真实接口验收，临时数据已清理；未推送远程。
 
 - 2026-09-04 — `order/phase2-inventory-foundation`: 新增 `product.reserved_stock` 字段及 `reserved_stock <= stock` 数据库约束；购物车、消费端商品、订单预览统一按可售库存计算；Admin 修改商品总库存低于已预留数量时返回 `PRODUCT_STOCK_CONFLICT`；补充库存、预留、Admin 冲突和异常契约测试。执行本地 migration 并检查字段/约束，Maven 40 个测试全部通过，使用 18080 端口启动后端并成功读取商品列表；线上迁移尚未执行。
 
