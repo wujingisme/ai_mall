@@ -86,6 +86,8 @@ The React admin theme is configured in `admin/src/main.tsx`, with application CS
 
 - **代码注释约定**：以后新增或修改前后端代码都必须补充关键中文注释。前端至少说明组件/函数职责、数据流、状态变化、接口参数和非直观的边界处理；后端必须更详细地说明分层职责、请求链路、权限与数据归属、异常路径、事务/并发/幂等、数据库影响，以及关键实现为什么这样选择。注释应解释业务原因，避免只重复代码字面含义。
 
+- **增量提交约定**：用户希望以后代码尽量拆成多次、小范围、可独立验证的本地 Git 提交。推荐按数据库/契约、后端业务、测试、前端页面或文档等边界拆分；每次提交前后说明变更范围和验证结果，默认不推送远程。提交应保持可理解、可回退，避免把多个无关功能塞进一个大提交。
+
 - **文件路径约束**：后续任何新文件、缓存、构建产物、可视化文件和临时文件均不得写入 C 盘；默认使用 `E:\ai_mall` 或用户明确指定的其他非 C 盘路径。已存在的 C 盘文件不得未经确认删除。
 
 - User background and explanation style: the user is primarily a frontend developer and is not yet familiar with databases, backend development, or operations. When discussing MySQL, Java/Spring, Linux, servers, deployment, Nginx, BaoTa, permissions, processes, ports, or similar topics, explain each new term in plain frontend-oriented language; state what the step is for, exactly where to perform it, what successful output looks like, and whether it can affect local or production services. Do not provide unexplained operations commands or assume backend/operations knowledge.
@@ -146,6 +148,8 @@ As of 2026-08-31:
 - 2026-09-04 — `order/design`: 新增 `公共知识/订单功能设计方案.md`，确定线上下单、线下取货、不接真实支付和不做物流的范围；设计订单/明细快照、预留库存、取货码、状态流转、接口、事务并发规则、分阶段实施和本地测试场景。仅文档变更，未修改业务代码或数据库。
 
 - 2026-09-04 — `order/phase1`: 新增订单主表 `mall_order`、明细表 `order_item`、迁移 SQL、详细注释的 DTO/Entity/Mapper/Service/Controller/VO 和订单异常；实现 `POST /api/v1/orders/preview`、`GET /api/v1/me/orders`、`GET /api/v1/me/orders/{id}`，后端从 JWT 做用户归属校验，预览按数据库最新价格/状态/库存计算且不写库、不锁库存；同步 OpenAPI、取货点配置、订单设计状态和后端学习笔记。执行仓库本地 Maven 缓存命令，34 个测试全部通过（包含匿名订单接口 401 安全边界测试）；未执行数据库迁移、真实运行时接口验收或前端页面接入。
+
+- 2026-09-04 — `workspace/incremental-commits`: 记录用户确认的长期协作偏好：后续代码尽量按数据库/契约、后端、测试、前端和文档等小范围拆成多次本地提交；每次提交说明范围与验证结果，默认不推送远程，便于定位和安全回退。
 
 - 2026-09-04 — `workspace/commenting convention`: 记录用户确认的长期代码注释要求：前后端代码都补充关键中文注释，后端额外详细说明分层、请求链路、安全边界、异常、事务、并发、幂等和数据库影响；仅更新项目记忆，未修改业务代码。
 
