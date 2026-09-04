@@ -69,6 +69,7 @@ Backend startup requires a reachable MySQL database and the required environment
 - UniApp request/session logic lives under `frontend/src/utils/`.
 - Consumer startup now opens the public product home directly. Successful login defaults to home unless a safe internal redirect was supplied; public home/detail/profile routes remain browsable without login, while cart navigation requires a session and backend authorization remains authoritative.
 - Frontend navigation policy is centralized in `frontend/src/utils/navigation.ts`. Session freshness and concurrent `/auth/me` deduplication are centralized in `frontend/src/utils/session-validation.ts`; the default runtime validation window is 60 seconds. Background session validation can clear stale credentials without forcing a public page to jump to login.
+- Frontend TypeScript path alias is configured in `frontend/tsconfig.json` as `@/* -> ./src/*` without the deprecated `baseUrl` option, so the project is compatible with the TypeScript 6 transition and future TypeScript 7 removal.
 
 ## Current UI direction
 
@@ -147,6 +148,8 @@ As of 2026-09-04:
 - Do not assume a successful UI route guard secures an API; authorization must remain enforced by Spring Security.
 
 ## Change log
+
+- 2026-09-04 — `frontend/typescript-config`: 移除 `frontend/tsconfig.json` 已弃用的 `baseUrl`，将 `@/*` 别名改为显式 `./src/*` 路径；`npm run type-check` 通过，未改变业务导入或运行时行为，未推送新增提交。
 
 - 2026-09-04 — `admin/order-page`: 新增 Admin 订单管理页面、订单类型和 API 客户端，接入状态/订单号/客户 ID 筛选、分页、详情抽屉和商品快照展示；同步菜单、路由、订单设计状态和中文关键注释。`npm run type-check`、`npm run build` 均通过；未做浏览器运行时验收，未推送新增提交。
 
