@@ -145,6 +145,8 @@ As of 2026-08-31:
 
 ## Change log
 
+- 2026-09-04 — `workspace/git-ssh`: 修复本机 GitHub SSH `known_hosts` 过期主机记录，确认现有 `id_rsa.pub` 已加入 GitHub 后，将本仓库 `origin` 切换为 `git@github.com:wujingisme/ai_mall.git`，并在本仓库配置使用 `id_rsa`。SSH 只读连接和 `git push origin main` 均成功，结果为 `Everything up-to-date`；未记录私钥或其他敏感凭据。
+
 - 2026-09-04 — `order/design`: 新增 `公共知识/订单功能设计方案.md`，确定线上下单、线下取货、不接真实支付和不做物流的范围；设计订单/明细快照、预留库存、取货码、状态流转、接口、事务并发规则、分阶段实施和本地测试场景。仅文档变更，未修改业务代码或数据库。
 
 - 2026-09-04 — `order/phase1`: 新增订单主表 `mall_order`、明细表 `order_item`、迁移 SQL、详细注释的 DTO/Entity/Mapper/Service/Controller/VO 和订单异常；实现 `POST /api/v1/orders/preview`、`GET /api/v1/me/orders`、`GET /api/v1/me/orders/{id}`，后端从 JWT 做用户归属校验，预览按数据库最新价格/状态/库存计算且不写库、不锁库存；同步 OpenAPI、取货点配置、订单设计状态和后端学习笔记。执行仓库本地 Maven 缓存命令，34 个测试全部通过（包含匿名订单接口 401 安全边界测试）；未执行数据库迁移、真实运行时接口验收或前端页面接入。
