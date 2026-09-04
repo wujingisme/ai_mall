@@ -41,6 +41,8 @@ function toggleRemember() {
 }
 
 async function submit() {
+  // 按钮禁用依赖下一次界面渲染；函数入口仍需同步拦截，避免连续点击或键盘确认重复发送登录请求。
+  if (submitting.value || restoring.value) return
   if (!account.value.trim()) {
     uni.showToast({ title: '请输入账号', icon: 'none' })
     return
@@ -70,6 +72,8 @@ async function submit() {
 }
 
 async function loginWithWechat() {
+  // 账号登录和微信登录共用同一忙碌状态，防止两个入口并发创建两份登录会话。
+  if (submitting.value || restoring.value) return
   try {
     submitting.value = true
     const loginResult = await uni.login({ provider: 'weixin' })
@@ -175,13 +179,13 @@ function goToRegister() {
         <button
           :class="['login-button', { ready: canSubmit }]"
           :loading="submitting"
-          :disabled="submitting"
+          :disabled="submitting || restoring"
           @click="submit">
           {{ submitting ? '正在登录' : '登录' }}
         </button>
 
         <!-- #ifdef MP-WEIXIN -->
-        <button class="wechat-button" :loading="submitting" :disabled="submitting" @click="loginWithWechat">
+        <button class="wechat-button" :loading="submitting" :disabled="submitting || restoring" @click="loginWithWechat">
           微信一键登录
         </button>
         <!-- #endif -->

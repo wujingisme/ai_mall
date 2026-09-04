@@ -68,6 +68,7 @@ Backend startup requires a reachable MySQL database and the required environment
 - Learning and deployment reference documents are stored under `公共知识/` by default.
 - UniApp request/session logic lives under `frontend/src/utils/`.
 - Consumer startup now opens the public product home directly. Successful login defaults to home unless a safe internal redirect was supplied; public home/detail/profile routes remain browsable without login, while cart navigation requires a session and backend authorization remains authoritative.
+- Consumer password and WeChat login handlers synchronously reject repeated entry while a login or saved-session restoration is already running. UI disabling remains the visual feedback, while the function-level guard prevents rapid taps or keyboard confirmation from sending duplicate login requests and showing duplicate success messages.
 - Frontend navigation policy is centralized in `frontend/src/utils/navigation.ts`. Session freshness and concurrent `/auth/me` deduplication are centralized in `frontend/src/utils/session-validation.ts`; the default runtime validation window is 60 seconds. Background session validation can clear stale credentials without forcing a public page to jump to login.
 - Frontend TypeScript path alias is configured in `frontend/tsconfig.json` as `@/* -> ./src/*` without the deprecated `baseUrl` option, so the project is compatible with the TypeScript 6 transition and future TypeScript 7 removal.
 
@@ -149,6 +150,8 @@ As of 2026-09-04:
 - Connect the Admin `/orders` detail drawer to `POST /api/v1/admin/orders/{id}/pickup-verification`, with a confirmation modal, input validation, success refresh, and stable handling for `ORDER_PICKUP_CODE_INVALID`, `ORDER_STATE_CONFLICT`, and `ORDER_INVENTORY_CONFLICT`.
 
 ## Change log
+
+- 2026-09-04 — `frontend/auth-login`: 为账号密码登录和微信登录增加共享的函数级同步防重复提交保护，并在已有会话恢复期间禁用两个登录入口，避免快速点击或键盘确认重复发送请求、保存会话和显示两次成功提示；未修改后端接口、令牌或数据库。执行 `npm run type-check` 通过，未运行完整构建或微信开发者工具验收。
 
 - 2026-09-04 — `order/admin-pickup-verification`: 新增后台取货码核销接口 `POST /api/v1/admin/orders/{id}/pickup-verification`，规范化并哈希比对 8 位取货码；在一个事务中锁订单和商品，按明细聚合并结算 `stock/reserved_stock`，再将订单改为 `PICKED_UP`；正确重复核销幂等返回，错误取货码、取消订单、库存不一致返回稳定 409。同步 OpenAPI、异常映射、详细中文注释，以及 Service/Controller/安全测试；Maven 73 个测试全部通过。未新增数据库表或迁移，Admin 页面按钮尚未接入，未推送新增提交。
 
