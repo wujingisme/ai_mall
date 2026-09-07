@@ -47,7 +47,7 @@ npm run dev:h5
 
 ## 自动化部署
 
-- `.github/workflows/deploy-backend.yml` 在推送到 `main` 且 `backend/` 发生变化时触发，使用 Java 17 构建并测试 Spring Boot JAR，通过 SSH 上传后调用部署脚本。它也支持通过 `workflow_dispatch` 手动运行，并确保生产部署串行执行。
+- `.github/workflows/deploy-backend.yml` 当前已关闭代码推送后的自动部署：原有 `push` 配置保留为带中文说明的注释，便于后续取消注释恢复。现在只有通过 `workflow_dispatch` 手动运行时，才会使用 Java 17 构建并测试 Spring Boot JAR、通过 SSH 上传并调用部署脚本；生产部署仍保持串行执行。
 - `deploy/mall-backend-deploy.sh` 会上传到 `/www/wwwroot/mymall/backend/deploy/`；它保留服务器上的 `backend.env`，以 `www` 用户运行 JAR，保留带时间戳的 JAR 备份，执行商品列表健康检查，并在启动失败时回滚到上一个 JAR。除非修改 `JAVA_BIN`，否则默认使用当前 OpenCloudOS JDK 路径 `/www/server/java/jdk-17.0.8/bin/java`。
 - 工作流需要 GitHub Actions 密钥 `DEPLOY_HOST`、`DEPLOY_PORT`、`DEPLOY_USER`、`DEPLOY_PATH`、`DEPLOY_SSH_KEY` 和 `DEPLOY_KNOWN_HOSTS`。数据库密码、JWT 密钥、微信 AppSecret 和服务器环境文件均不得存入 GitHub。
 - 一次性服务器准备和完整 GitHub 配置记录在 `公共知识/GitHub Actions自动部署.md`。自动化代码已在仓库中就绪，但完成服务器准备和 GitHub 密钥配置前不会生效；前端、Admin 和微信发布不属于该工作流范围。
@@ -152,6 +152,8 @@ React Admin 主题配置位于 `admin/src/main.tsx`，应用 CSS 位于 `admin/s
 - 需要同时购物的管理员使用 Admin 顶部“开通前台身份”操作；成功后在消费者端重新登录，使 JWT 包含 `CUSTOMER`，再确认该账号在 `/users` 中显示双角色。
 
 ## 变更日志
+
+- 2026-09-07 — `deployment/manual-only-trigger`：注释 `.github/workflows/deploy-backend.yml` 中面向 `main` 及后端相关路径的 `push` 自动触发配置，保留中文恢复说明和 `workflow_dispatch` 手动部署入口；同步更新项目记忆。以后推送代码不会自动发布，手动运行时原有构建、上传、重启、健康检查和回滚流程不变。仅执行工作流文本结构和差异检查，未触发 GitHub Actions、服务器部署或重启。
 
 - 2026-09-07 — `workspace/project-memory-language`：将项目共享记忆中的说明、实施约定、路线图、验证基线、后续事项和历史变更记录统一翻译为中文；补充约定，要求今后新增的项目记忆和变更日志使用中文书写，技术名称、代码标识、命令、路径和 API 保留原文。仅文档变更；已检查主要英文叙述残留，未运行构建或测试。
 
